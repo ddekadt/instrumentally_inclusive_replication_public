@@ -3,10 +3,14 @@
 This repo includes all markdown, code, and supporting files to reproduce "A Note on 'Instrumentally Inclusive: The Political Psychology of Homonationalism' (Turnbull-Dugarte & López Ortega, 2024)," published at the _American Political Science Review_. This report highlights two major concerns, and a range of more minor concerns/issues, with that paper. 
 
 Shortcuts: 
-[The original paper](https://www.cambridge.org/core/journals/american-political-science-review/article/instrumentally-inclusive-the-political-psychology-of-homonationalism/1D9425F6FA20F34B0918018275A507A8)
-[The published replication](https://www.cambridge.org/core/journals/american-political-science-review/article/replication-of-instrumentally-inclusive-the-political-psychology-of-homonationalism-turnbulldugarte-and-lopez-ortega-2024/CBE4AAA8A4175BB85AD2B359EA58EEEE)
-[The Nov 29 response](https://osf.io/rn6h3/files/km42r)
-[A brief response to the Nov 29 response](https://github.com/ddekadt/instrumentally_inclusive_replication_public/blob/master/brief_response_nov29/dekadt_brief_response_nov29.html) (to read this, just download the .html file and open it in your browser -- this lets you zoom in nicely if needed).
+
+- [The original paper](https://www.cambridge.org/core/journals/american-political-science-review/article/instrumentally-inclusive-the-political-psychology-of-homonationalism/1D9425F6FA20F34B0918018275A507A8)
+
+- [The published replication](https://www.cambridge.org/core/journals/american-political-science-review/article/replication-of-instrumentally-inclusive-the-political-psychology-of-homonationalism-turnbulldugarte-and-lopez-ortega-2024/CBE4AAA8A4175BB85AD2B359EA58EEEE)
+
+- [The Nov 29 response](https://osf.io/rn6h3/files/km42r)
+
+- [A brief response to the Nov 29 response](https://github.com/ddekadt/instrumentally_inclusive_replication_public/blob/master/brief_response_nov29/dekadt_brief_response_nov29.html) (to read this, just download the .html file and open it in your browser -- this lets you zoom in nicely if needed).
 
 The repo also includes a few other things: 
 
