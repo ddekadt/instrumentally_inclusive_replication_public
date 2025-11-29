@@ -82,7 +82,7 @@ Claims about interpretation of results.
 
 The authors quote me as saying that their use of weights in study 2 is "inconsistent with the analysis of Study 1, and this inconsistency is not explained or justified.'' (p3).
 
-Below I include both the authors' quote, and what is actually say on p2 of the published replication. They have both misquoted me (note the use of a full stop to indicate the end of a sentence), and misrepresented what I say. 
+Below I include both the authors' quote, and what I actually say on p2 of the published replication. They have both misquoted me (note the use of a full stop to indicate the end of a sentence), and misrepresented what I say. It may be that the authors (mis)quoted an earlier draft of the replication (the accepted version, not the published version). Be that as it may, they clearly mischaracterize and misrepresent the content. 
 
 ::: {#fig-claim3 layout-ncol=2}
 
