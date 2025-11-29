@@ -18,7 +18,7 @@ The repo also includes a few other things:
 
 - "email_exchange": a copy of the email sent in October 2024, when the original version of the comment was sent to the authors.
 
-- "apsr_submission" and "apsr_submission_r1": anonymized versions of the comment as submitted to the APSR. 
+- "apsr_submission" and "apsr_submission_r1": anonymized versions of the comment as submitted to the APSR. Please note I have note included the reviews or my response to the reviewers.
 
 - "apsr_final" contains the final .tex files and tables and figures (plus supplementary materials .pdf) sent to the APSR for production, and the final published version of the paper.
 
