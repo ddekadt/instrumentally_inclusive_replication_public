@@ -10,7 +10,7 @@ Shortcuts:
 
 - [The Nov 29 response by the original authors](https://osf.io/rn6h3/files/km42r)
 
-- [A brief response to the Nov 29 response](https://www.dropbox.com/scl/fi/kpl8tffidiapoj38m6t73/dekadt_brief_response_nov29.html?rlkey=b4e3gcsborv8fshbtiimon62o&dl=1) (this link will automatically download the .html file from dropbox to your computer -- just open it in any browser to read).
+- [A brief response to the Nov 29 response](brief_response_nov29/dekadt_brief_response_nov29.html) (you will need to download this file to your computer - then just open it in any browser to read).
 
 The repo also includes a few other things: 
 
