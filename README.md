@@ -1,6 +1,6 @@
-# Archive for "A Note on Turnbull-Dugarte & López Ortega (2024)"
+# Archive for "Replication of Turnbull-Dugarte & López Ortega (2024)"
 
-This repo includes all markdown, code, and supporting files to reproduce "A Note on 'Instrumentally Inclusive: The Political Psychology of Homonationalism' (Turnbull-Dugarte & López Ortega, 2024)," published at the _American Political Science Review_. This report highlights two major concerns, and a range of more minor concerns/issues, with that paper. 
+This repo includes all markdown, code, and supporting files to reproduce "Replication of 'Instrumentally Inclusive: The Political Psychology of Homonationalism' (Turnbull-Dugarte & López Ortega, 2024)," published at the _American Political Science Review_. The report highlights two major concerns, and a range of more minor concerns/issues, with that paper. 
 
 Shortcuts: 
 
