@@ -1,0 +1,137 @@
+---
+title: "A Brief Response to 'Still Instrumentally Inclusive' (Turnbull-Dugarte & López Ortega)"
+author: 
+  name: "Daniel de Kadt"
+  email: "d.n.de-kadt@lse.ac.uk"
+  affiliations: "London School of Economics, Department of Methodology"
+citeproc: true
+format:
+  html:
+    theme: default
+    layout: true
+    self-contained: true
+    mainfont: "Computer Modern"
+
+---
+
+# Introduction
+
+This is a very brief response to ["Still Instrumentally Inclusive"](https://osf.io/rn6h3/files/km42r) by Turnbull-Dugarte and López Ortega, released as a pre-print on November 29th 2025 in response to the publication of my replication of their paper "Instrumentally Inclusive: The Political Psychology of Homonationalism." 
+
+In that replication I document the following: 
+
+The authors use (very strange) weights for one study, and none for the other (yes, one can weight representative samples). The authors use inappropriate standard errors for many (but not all) analyses. 
+
+When you straightforwardly vary these choices, the pattern of statistically significant and substantively meaningful results presented in Study 2 goes away. 
+
+This note mostly summarises some threads I posted on bluesky [here](https://bsky.app/profile/dandekadt.bsky.social/post/3m6rtn4wrtk24) and [here](https://bsky.app/profile/dandekadt.bsky.social/post/3m6rzddt5xl24). Pleae note that I have re-organized my thoughts a bit here, and added one more point.
+
+I make six points First, I address the multiverse tests the authors present. I then address five claims in the response that are at worst untrue or at best misleading and obscure the truth. 
+
+# Multiverse Tests
+
+The authors' primary response to my replication of their paper is a multiverse-style analysis. They construct 18 different sets of weights (using three different benchmarks and 6 different weight caps), and then run analyses for each of these using 3 different standard error choices (classical, robust, and survey-robust (`svyglm`)), across 3 samples (full, and two subgroups -- pro-immigration, anti-immigration). This yields 162 analyses. They note that  "across all 162 specifications, the full sample and both subgroups show positive treatment effects'' and note that many of these tests are statistically significant at conventional levels. 
+
+I offer two basic comments on this approach. 
+
+First, if you run many correlated tests, you unsurprisingly end up with many correlated answers. Multiverse testing feels very persuasive because it allows us to say things like "these diverse specifications thus result in a total of 540 alternative means of empirically testing our hypotheses [and the] results from these 540 models do not alter our conclusions'' (p12).
+
+But if these tests are all variations of the same basic test (which they are), then it's unsurprising and unremarkable if the results correlate. These aren't alternative tests, they are variations on the same test. As Julia Rohrer puts it in [this post about multiverse analyses](https://www.the100.ci/2021/03/07/mulltiverse-analysis/): "the presentation of results will almost necessarily imply that all specifications are exchangeable (if some were inherently unpreferrable, why include them in the first place?)''
+
+The deep issue is the _use_ of weights, not so much the specific (admittedly strangely distributed) weights chosen. If one constructs many weighting schemes that do roughly the same thing, one will find many correlated answers. This isn't evidence that the result is "real'' or that the analyses are "correct'' or that the weights are "appropriate.'' Those arguments need to be made on their own terms.
+
+Second, and to this very point, one-third of all the multiverse tests conducted by the authors should not have been conducted at all. There isn't a debate on inference -- the linear probability model with a binary dependent variable has heteroskedastic errors. All the analyses with classical standard errors are simply misspecified (with respect to inference). 
+
+Think about the implications of this: We we are told we have 162 different tests. One-third of those shouldn't be conducted (classical SEs), so we really have 108 tests. But we really only have 54 -- because one of the differences is standard error estimation (robust vs. survey-robust SEs -- and this is going to make very little difference). Of those 54, one-third (the full sample) share approximately half their data with either sub-sample (so, the other two-thirds of the data). So we maybe have 36 tests (the tests on the two sub-samples). But those 36 tests draw on only 3 different weighting targets. And those weights themselves are based on the same underlying dataset. And so on, and so on. All these tests are correlated, some of them shouldn't even be run, so what do we actually learn from this? As Rohrer puts it "you can’t brute-force inference with more data and more stats.''
+
+I now turn to five misleading claims made by the authors in their response.
+
+# Misleading Claim 1: Missing Robust Standard Errors
+
+The authors acknowledge their inconsistent use of robust standard errors and attribute this to relying on the  `robust = TRUE` call in `R` (p12). Indeed in footnote 8 the authors claim "[o]ur code, which ran without errors, conflated the two packages and was misspecified in the following way: modelsummary(model, robust = TRUE).'' 
+
+This is not generally true.
+
+For example, consider the code snippet from the authors' original replication code provided below. In tables A9 and A10 (which report the main results), robust SEs are simply _never_ called. There is no `robust = TRUE` call other than in the line that produces table A11. Note that, of these three sets of analyses, only the results in A11 are not sensitive to this choice.
+
+::: {#fig-claim1 layout-ncol=2}
+
+![Claim about Standard Errors (p12 of Response)](img/claim1_tldo.jpg){#fig-claim1-tldo}
+
+![Code Snippet from Replication Archive](img/claim1_code_snippet.jpg){#fig-claim1-code}
+
+Claims about standard errors and replication code.
+:::
+
+# Misleading Claim 2: Mischaracterizing the Interpretation of Results
+
+The authors claim that I misconstrue changes in statistical significance from robust SEs as evidence of "no effect'' (p13). 
+
+I include here a snippet that shows how I actually discuss the results of Table 2 on page 4 of the published replication. I pay close attention to the difference between statistical significance and effect magnitude. 
+
+::: {#fig-claim2 layout-ncol=2}
+
+![Claim about Interpretation (p13 of Response)](img/claim2_tldo.jpg){#fig-claim2-tldo}
+
+![Actual Discussion of Results (p4 of Replication)](img/claim2_dekadt.jpg){#fig-claim2-ddk}
+
+Claims about interpretation of results.
+:::
+
+# Misleading Claim 3: Mischaracterizing the Discussion of Weights
+
+The authors quote me as saying that their use of weights in study 2 is "inconsistent with the analysis of Study 1, and this inconsistency is not explained or justified.'' (p3).
+
+Below I include both the authors' quote, and what is actually say on p2 of the published replication. They have both misquoted me (note the use of a full stop to indicate the end of a sentence), and misrepresented what I say. 
+
+::: {#fig-claim3 layout-ncol=2}
+
+![Paragraph that Quotes the Replication (p3 of Response)](img/claim3_tldo.jpg){#fig-claim3-tldo}
+
+![Actual Text about Weights (p2 of Replication)](img/claim3_dekadt.jpg){#fig-claim3-dekadt}
+
+Discussion of weights.
+:::
+
+# Misleading Claim 4: Heterogeneous Effects and Ceiling Effects
+
+The authors claim on page 5 that the reliance on weights is unsurprising because an unweighted sample "overrpresents subgroups less responsive to treatment (e.g. younger respondents already at ceiling on the outcome measure)''. 
+
+In the replication I show in Table 3 that, even among those who are _negatively disposed towards immigrants_, those with low weights show no response to treatment while those with high weights show a strong response. This is true even though the mean of the control group outcome is .687 (min = 0, max = 1). I then show in Table 4 that, among those positively disposed towards immigrants, the exact same pattern holds, even though the mean of the control group for the high weights group in this sub-sample is .776. Ceiling effects seem unlikely to explain these patterns. 
+
+In the supplementary material of the replication I provide an analysis that shows that there is indeed age-heterogeneity in the Spain sample (though it is non-linear), but that age heterogeneity is largely absent (or perhaps even reversed) in the UK sample. 
+
+:::{#fig-claim4 layout-ncol=2}
+
+![Claim about Effect Heterogeneity (p5 of Response)](img/claim4_tldo.jpg){#fig-claim4-tldo}
+
+![Actual Text (p2 of Replication)](img/claim4_dekadt.jpg){#fig-claim4-dekadt}
+
+Claims about effect heterogeneity.
+:::
+
+
+# Misleading Claim 5: Misleading Visualizations
+
+Finally, the authors claim that "no point do [their] visualizations incorrectly label what is displayed beyond the logistic-vs-OLS'' (p16). 
+
+But their data visualizations do at least two things that are highly unusual, and would never be expected by any reader. Neither of these is noted in the paper. This makes the visualizations misleading. 
+
+First, they report 90% CIs (with critical values hard-coded into the code), and second they include jittered predicted values as dots on the experimental results plots. I show the contrast between the original visualization of Figure 7 and the corrected version below. The difference is stark. (Note also that the authors also mostly do not use robust standard errors in the text overlays, hence the text overlay changes between the original and corrected versions.)
+
+
+::: {#fig-claim5a}
+
+![](img/claim5_tldo.jpg){#fig-claim5-tldo}
+
+Claim about visualisations (p16 of response)
+:::
+
+::: {#fig-claim5b layout-ncol=2}
+
+![Original Version of Figure 7](img/fig7_original.jpg){#fig-claim4b-tldo}
+
+![Corrected Version of Figure 7](img/fig7_corrected.jpg){#fig-claim4b-dekadt}
+
+Misleading plot and a corrected version.
+:::
