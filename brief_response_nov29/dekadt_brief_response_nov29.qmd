@@ -24,9 +24,9 @@ The authors use (very strange) weights for one study, and none for the other (ye
 
 When you straightforwardly vary these choices, the pattern of statistically significant and substantively meaningful results presented in Study 2 goes away. 
 
-This note mostly summarises some threads I posted on bluesky [here](https://bsky.app/profile/dandekadt.bsky.social/post/3m6rtn4wrtk24) and [here](https://bsky.app/profile/dandekadt.bsky.social/post/3m6rzddt5xl24). Pleae note that I have re-organized my thoughts a bit here, and added one more point.
+This note mostly summarises some threads I posted on bluesky [here](https://bsky.app/profile/dandekadt.bsky.social/post/3m6rtn4wrtk24) and [here](https://bsky.app/profile/dandekadt.bsky.social/post/3m6rzddt5xl24). Please note that I have re-organized my thoughts a bit here, and added one more point.
 
-I make six points First, I address the multiverse tests the authors present. I then address five claims in the response that are at worst untrue or at best misleading and obscure the truth. 
+I make six points. First, I address the multiverse tests the authors present. I then address five claims in the response that are at worst untrue or at best misleading and obscure the truth. 
 
 # Multiverse Tests
 
@@ -38,7 +38,7 @@ First, if you run many correlated tests, you unsurprisingly end up with many cor
 
 But if these tests are all variations of the same basic test (which they are), then it's unsurprising and unremarkable if the results correlate. These aren't alternative tests, they are variations on the same test. As Julia Rohrer puts it in [this post about multiverse analyses](https://www.the100.ci/2021/03/07/mulltiverse-analysis/): "the presentation of results will almost necessarily imply that all specifications are exchangeable (if some were inherently unpreferrable, why include them in the first place?)''
 
-The deep issue is the _use_ of weights, not so much the specific (admittedly strangely distributed) weights chosen. If one constructs many weighting schemes that do roughly the same thing, one will find many correlated answers. This isn't evidence that the result is "real'' or that the analyses are "correct'' or that the weights are "appropriate.'' Those arguments need to be made on their own terms.
+The deep issue is the _use_ of weights, not so much the specific (admittedly strangely distributed) weights chosen. If one constructs many weighting schemes that do roughly the same thing, one will find many correlated answers. This isn't evidence that the result is "real" or that the analyses are  "correct" or that the weights themselves are "appropriate." Those arguments need to be made on their own terms.
 
 Second, and to this very point, one-third of all the multiverse tests conducted by the authors should not have been conducted at all. There isn't a debate on inference -- the linear probability model with a binary dependent variable has heteroskedastic errors. All the analyses with classical standard errors are simply misspecified (with respect to inference). 
 
@@ -95,9 +95,11 @@ Discussion of weights.
 
 # Misleading Claim 4: Heterogeneous Effects and Ceiling Effects
 
-The authors claim on page 5 that the reliance on weights is unsurprising because an unweighted sample "overrpresents subgroups less responsive to treatment (e.g. younger respondents already at ceiling on the outcome measure)''. 
+The authors claim on page 5 that the reliance on weights is unsurprising because an unweighted sample "overrepresents subgroups less responsive to treatment (e.g. younger respondents already at ceiling on the outcome measure)". 
 
-In the replication I show in Table 3 that, even among those who are _negatively disposed towards immigrants_, those with low weights show no response to treatment while those with high weights show a strong response. This is true even though the mean of the control group outcome is .687 (min = 0, max = 1). I then show in Table 4 that, among those positively disposed towards immigrants, the exact same pattern holds, even though the mean of the control group for the high weights group in this sub-sample is .776. Ceiling effects seem unlikely to explain these patterns. 
+First, I would note that this is simply begging the question. We don't  know _a prior_ who is responsive to treatment - that is an open scientific question. The original paper proposes immigration sentiment as the moderator, not age (or anything else). 
+
+Second, in the replication I show in Table 3 that, even among those who are _negatively disposed towards immigrants_, those with low weights show no response to treatment while those with high weights show a strong response. This is true even though the mean of the control group outcome is .687 (min = 0, max = 1). I then show in Table 4 that, among those positively disposed towards immigrants, the exact same pattern holds, even though the mean of the control group for the high weights group in this sub-sample is .776. Ceiling effects seem unlikely to explain these patterns. 
 
 In the supplementary material of the replication I provide an analysis that shows that there is indeed age-heterogeneity in the Spain sample (though it is non-linear), but that age heterogeneity is largely absent (or perhaps even reversed) in the UK sample. 
 
