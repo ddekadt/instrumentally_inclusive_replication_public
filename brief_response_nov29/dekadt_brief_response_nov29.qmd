@@ -107,7 +107,7 @@ In the supplementary material of the replication I provide an analysis that show
 
 ![Claim about Effect Heterogeneity (p5 of Response)](img/claim4_tldo.jpg){#fig-claim4-tldo}
 
-![Actual Text (p2 of Replication)](img/claim4_dekadt.jpg){#fig-claim4-dekadt}
+![Tables 3 and 4 from Replication](img/claim4_dekadt.jpg){#fig-claim4-dekadt}
 
 Claims about effect heterogeneity.
 :::
