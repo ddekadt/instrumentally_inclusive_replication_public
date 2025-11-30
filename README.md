@@ -25,3 +25,5 @@ The repo also includes a few other things:
 - "apsr_replication_archives" contains the files submitted to the APSR dataverse for replication.
 
 - "brief_response_nov29" contains the response to the authors' response (circulated Nov 29).
+
+- "timeline.txt" which is an accounting of the timeline of the replication process, based on my understanding.
