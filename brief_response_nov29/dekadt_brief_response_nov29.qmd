@@ -97,11 +97,11 @@ Discussion of weights.
 
 The authors claim on page 5 that the reliance on weights is unsurprising because an unweighted sample "overrepresents subgroups less responsive to treatment (e.g. younger respondents already at ceiling on the outcome measure)". 
 
-First, I would note that this is simply begging the question. We don't  know _a prior_ who is responsive to treatment - that is an open scientific question. The original paper proposes immigration sentiment as the moderator, not age (or anything else). 
+First, I would note that this is simply begging the question. We don't  know _a priori_ who is responsive to treatment - that is an open scientific question! It is bizarrely circular to claim that those who are found to be highly sensitive to treatment _should be upweighted_. The original paper proposes immigration sentiment as the moderator, not age (or anything else). 
 
 Second, in the replication I show in Table 3 that, even among those who are _negatively disposed towards immigrants_, those with low weights show no response to treatment while those with high weights show a strong response. This is true even though the mean of the control group outcome is .687 (min = 0, max = 1). I then show in Table 4 that, among those positively disposed towards immigrants, the exact same pattern holds, even though the mean of the control group for the high weights group in this sub-sample is .776. Ceiling effects seem unlikely to explain these patterns. 
 
-In the supplementary material of the replication I provide an analysis that shows that there is indeed age-heterogeneity in the Spain sample (though it is non-linear), but that age heterogeneity is largely absent (or perhaps even reversed) in the UK sample. 
+In the supplementary material of the replication I provide an analysis that shows that there is indeed age heterogeneity in the Spain sample (though it is non-linear), but that age heterogeneity is largely absent (or perhaps even reversed) in the UK sample. 
 
 :::{#fig-claim4 layout-ncol=2}
 
@@ -115,11 +115,13 @@ Claims about effect heterogeneity.
 
 # Misleading Claim 5: Misleading Visualizations
 
-Finally, the authors claim that "no point do [their] visualizations incorrectly label what is displayed beyond the logistic-vs-OLS'' (p16). 
+Finally, the authors claim that "at no point do [their] visualizations incorrectly label what is displayed beyond the logistic-vs-OLS error already acknowledged.'' (p16). 
 
-But their data visualizations do at least two things that are highly unusual, and would never be expected by any reader. Neither of these is noted in the paper. This makes the visualizations misleading. 
+But their data visualizations do at least two things that are highly unusual, and would _never_ be expected by any reader. Neither of these is choices in the paper. This makes the visualizations misleading. 
 
-First, they report 90% CIs (with critical values hard-coded into the code), and second they include jittered predicted values as dots on the experimental results plots. I show the contrast between the original visualization of Figure 7 and the corrected version below. The difference is stark. (Note also that the authors also mostly do not use robust standard errors in the text overlays, hence the text overlay changes between the original and corrected versions.)
+First, the authors report 90% confidence intervals (with critical values hard-coded into the code). Second, they include jittered predicted values as dots on the experimental results plots. 
+
+I show below, by way of example, the contrast between the original visualization of Figure 7 and the corrected version. The difference is stark. (Note also that the authors also mostly do not use robust standard errors in the text overlays, hence the text overlay changes between the original and corrected versions.)
 
 
 ::: {#fig-claim5a}
