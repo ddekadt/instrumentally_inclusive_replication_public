@@ -19,5 +19,7 @@ I plan to post the comment on my public website on November 1. Before then, on O
 Sincerely,
 
 Daniel de Kadt
+
 Dept. of Methodology
+
 London School of Economics and Political Science
