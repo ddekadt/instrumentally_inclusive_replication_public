@@ -16,7 +16,7 @@ The repo also includes a few other things:
 
 - "clean_replication": a copy of the original replication archive which was used to complete a computational reproduction of the paper (largely without issue, minor comments in Appendix 1 of the report), and which provides the data files used in the report. Note that one large file (ESS-Data-Wizard-subset-2023-02-08.dta) is excluded due to GitHub limits on large files.
 
-- "email_exchange": a copy of the email sent in October 2024, when the original version of the comment was sent to the authors.
+- "email_exchange": a copy of the email sent in October 2024, when the original version of the comment was sent to the authors, and a copy of the email sent to the APSR outlining my concerns. Versions of the replication sent in each email are included.
 
 - "apsr_submission" and "apsr_submission_r1": anonymized versions of the comment as submitted to the APSR. Please note I have note included the reviews or my response to the reviewers.
 
