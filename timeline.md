@@ -1,4 +1,4 @@
-# Initial Events:
+## Initial Events:
 
 Sept '24: I wrote my report
 
@@ -8,7 +8,7 @@ Sept '24: I wrote my report
 
 23 Oct '24: I determined that their email did not change my perspective on the original paper or my replication, and sent the report to both the APSR editorial team and CUP's publishing ethics team in an email (as I had indicated I would).
 
-# Formal Review Process:
+## Formal Review Process:
 
 1 Nov '24: The APSR team invited me to submit on the reappraisals/replication track. For personal reasons I decided not to post publicly on 1 Nov. [Note: I was unaware of the existence of this new publication track at the APSR until I received this invitation.]
 
@@ -16,7 +16,7 @@ Sept '24: I wrote my report
 
 2 June '25: I submitted a revised version of the paper.
 
-# Post-Acceptance Process:
+## Post-Acceptance Process:
 
 9 July '25: I received a conditional accept subject to some internal APSR steps that required I submit initial replication materials for review [I do not know the details of this process.]
 
