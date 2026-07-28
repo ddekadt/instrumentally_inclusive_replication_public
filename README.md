@@ -8,9 +8,11 @@ Shortcuts:
 
 - [The published replication](https://www.cambridge.org/core/journals/american-political-science-review/article/replication-of-instrumentally-inclusive-the-political-psychology-of-homonationalism-turnbulldugarte-and-lopez-ortega-2024/CBE4AAA8A4175BB85AD2B359EA58EEEE)
 
-- [The Nov 29 response by the original authors](https://osf.io/rn6h3/files/km42r)
+- [The Nov 29 2025 response by the original authors](https://osf.io/rn6h3/files/km42r)
 
-- [A brief response to the Nov 29 response](brief_response_nov29/dekadt_brief_response_nov29.html) (you will need to download this file to your computer - then just open it in any browser to read).
+- [The July 28 2026 published response by the original authors](https://www.cambridge.org/core/journals/american-political-science-review/article/still-instrumentally-inclusive/EFEB1C5AA8259359BE4838B73377A9D7)
+
+- [A brief response to the Nov 29 2026 response](brief_response_nov29/dekadt_brief_response_nov29.html) (Download this file to your computer then just open it in any browser to read. Note I have not updated this response since late 2025).
 
 The repo also includes a few other things: 
 
