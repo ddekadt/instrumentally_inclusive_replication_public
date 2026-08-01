@@ -12,7 +12,7 @@ Shortcuts:
 
 - [The July 28 2026 published response by the original authors](https://www.cambridge.org/core/journals/american-political-science-review/article/still-instrumentally-inclusive/EFEB1C5AA8259359BE4838B73377A9D7)
 
-- [A brief response to the Nov 29 2026 response](brief_response_nov29/dekadt_brief_response_nov29.html) (Download this file to your computer then just open it in any browser to read. Note I have not updated this response since late 2025).
+- [A rejoinder to the response](rejoinder/dekadt_rejoinder_still_instrumentally_inclusive.pdf)
 
 The repo also includes a few other things: 
 
@@ -27,5 +27,7 @@ The repo also includes a few other things:
 - "apsr_replication_archives" contains the files submitted to the APSR dataverse for replication.
 
 - "brief_response_nov29" contains the response to the authors' response (circulated Nov 29).
+
+- "rejoinder" contains an updated version of the brief response. 
 
 - "timeline.md" which is an accounting of the timeline of the replication process, based on my understanding.
