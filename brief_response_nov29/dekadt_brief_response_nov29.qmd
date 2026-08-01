@@ -124,18 +124,18 @@ First, the authors report 90% confidence intervals (with critical values hard-co
 I show below, by way of example, the contrast between the original visualization of Figure 7 and the corrected version. The difference is stark. (Note also that the authors also mostly do not use robust standard errors in the text overlays, hence the text overlay changes between the original and corrected versions.)
 
 
-::: {#fig-claim5a}
+::: {#fig-claim-viza}
 
-![](img/claim5_tldo.jpg){#fig-claim5-tldo}
+![](img/claimviz_tldo.jpg){#fig-claimviz-tldo}
 
 Claim about visualisations (p16 of response)
 :::
 
-::: {#fig-claim5b layout-ncol=2}
+::: {#fig-claim-vizb layout-ncol=2}
 
-![Original Version of Figure 7](img/fig7_original.jpg){#fig-claim4b-tldo}
+![Original Version of Figure 7](img/fig7_original.jpg){#fig-claimviz-tldo}
 
-![Corrected Version of Figure 7](img/fig7_corrected.jpg){#fig-claim4b-dekadt}
+![Corrected Version of Figure 7](img/fig7_corrected.jpg){#fig-claimviz-dekadt}
 
 Misleading plot and a corrected version.
 :::

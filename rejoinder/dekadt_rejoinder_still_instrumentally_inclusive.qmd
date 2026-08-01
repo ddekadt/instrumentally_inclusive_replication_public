@@ -1,0 +1,854 @@
+---
+title: "A Rejoinder to '_Still_ Instrumentally Inclusive' (Turnbull-Dugarte & López Ortega)"
+author:
+  name: "Daniel de Kadt"
+  email: "dekadt@cornell.edu"
+  affiliations: "Cornell University, Department of Government"
+date: last-modified
+citeproc: true
+bibliography: references.bib
+abstract: |
+  Turnbull-Dugarte and López Ortega's "_Still_ Instrumentally Inclusive" (the _Response_) answers my replication (the _Comment_) of their 2024 *American Political Science Review* paper (the _Article_) with, among other things, a multiverse of 2,970 analyses based on eighteen different weighting schemes, randomization inference, and a trichotomous moderator. As I show in this rejoinder, each is undermined by _bona fide_ errors in their code, their writing, and their interpretation. First, the multiverse is just many correlated variants of the same test. This is in large part due to the weighting schemes which suffer multiple problems (some due to code errors, some intrinsic), and are largely correlated variations on one weighting scheme. Second, due to code errors the randomization inference compares a weighted statistic against an unweighted null and, in the two heterogeneity tests, permutes the interaction column rather than treatment assignment column. Every permutation _p_-value the _Response_ reports is therefore computed against the wrong reference distribution; when they are recomputed correctly, two of the five it reports as significant are no longer so, and they are the two the _Response_ emphasizes. Third, the trichotomous moderator is erroneously described as terciles, but it is in fact based on non-tercile cutpoints. The key subgroup effect reported in the _Response_ thus rests on comparing just thirty high-weight control respondents against thirty-one high-weight treated respondents, and ends up reaffirming my original point that the heterogeneity in study 2 is with respect to weights, and not immigration sentiment as their theory predicts. I close by documenting seven claims in the _Response_ that are untrue or misleading.
+format:
+  html:
+    theme: default
+    layout: true
+    self-contained: true
+    mainfont: "Computer Modern"
+  typst:
+    papersize: a4
+    margin: {x: 2.5cm, y: 2.5cm}
+    mainfont: "New Computer Modern"
+    linkcolor: "#1F6FB2"
+execute:
+  echo: false
+  warning: false
+  message: false
+  cache: false
+knitr:
+  opts_chunk:
+    fig.align: center
+    dpi: 200
+
+---
+
+
+```{r setup}
+#| cache: false
+knitr::opts_chunk$set(comment = NA)
+# ritest is not on CRAN. The Response's own README prescribes this install.
+if (!requireNamespace("ritest", quietly = TRUE)) {
+  if (!requireNamespace("remotes", quietly = TRUE))
+    install.packages("remotes", repos = "https://cloud.r-project.org")
+  remotes::install_url("https://grantmcdermott.r-universe.dev/src/contrib/ritest_0.1.0.tar.gz",
+                       upgrade = "never")
+}
+suppressPackageStartupMessages({
+  library(readxl); library(dplyr); library(tidyr); library(survey); library(anesrake)
+  library(estimatr); library(ritest); library(ggplot2); library(patchwork)
+})
+
+SEED    <- 12345                       # fixed throughout, so every number below is reproducible
+ARCHIVE <- "../td_lo_apsr_2026"        # the Response's archive, Dataverse 10.7910/DVN/EWMIKZ
+if (!dir.exists(ARCHIVE))
+  stop("Set ARCHIVE to the unpacked Dataverse archive for 'Still Instrumentally Inclusive'.")
+
+PUB <- "#d11141"   # the Response's own red, reused so figures read against theirs
+COR <- "#1F6FB2"
+INK <- "#1a1a1a"; INK2 <- "#4a4a4a"; MUTED <- "#8a8a8a"
+thm <- theme_minimal(base_size = 11) +
+  theme(panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(colour = "grey92", linewidth = 0.3),
+        plot.title    = element_text(face = "bold", size = 11.5, colour = INK),
+        plot.subtitle = element_text(size = 9.5, colour = INK2),
+        axis.title    = element_text(size = 9.5, colour = INK2),
+        axis.text     = element_text(colour = INK2),
+        legend.position = "bottom", legend.title = element_blank(),
+        plot.caption  = element_text(size = 8, colour = MUTED, hjust = 0))
+fmt <- function(x, d = 3) formatC(x, format = "f", digits = d)
+```
+
+```{r data}
+epa <- read_excel(file.path(ARCHIVE, "data/EPA_2022T1.xlsx")) |>
+  mutate(agecat = case_when(EDAD1 > 17 & EDAD1 < 25 ~ 1, EDAD1 >= 25 & EDAD1 < 35 ~ 2,
+                            EDAD1 >= 35 & EDAD1 < 45 ~ 3, EDAD1 >= 45 & EDAD1 < 55 ~ 4,
+                            EDAD1 >= 55 & EDAD1 < 65 ~ 5, EDAD1 >= 65 ~ 6),
+         gender = case_when(SEXO1 == 1 ~ 1, SEXO1 == 6 ~ 2),
+         ccaa   = case_when(CCAA %in% c(51, 52) ~ NA_real_, TRUE ~ CCAA))
+load(file.path(ARCHIVE, "data/spain.Rda"))
+spain$gender <- factor(spain$gender); spain$agecat <- factor(spain$agecat)
+spain$ccaa   <- factor(spain$ccaa)
+
+# EPA targets exactly as the archive builds them: no elevation factor (FACTOREL) is used
+sv <- svydesign(ids = ~1, data = epa)
+targ_epa <- list(gender = prop.table(svytable(~gender, sv)),
+                 agecat = prop.table(svytable(~agecat, sv)),
+                 ccaa   = prop.table(svytable(~ccaa,   sv)))
+# the INE vector hard-coded just below the EPA block in the archive's own script
+ccaa_ine <- c(.1785, .0279, .0211, .0248, .0458, .0123, .0497, .0431, .1637,
+              .1070, .0221, .0564, .1418, .0322, .0140, .0464, .0067)
+ccaa_names <- c("Andalucía", "Aragón", "Asturias", "Baleares", "Canarias", "Cantabria",
+                "Castilla y León", "Castilla-La Mancha", "Cataluña", "C. Valenciana",
+                "Extremadura", "Galicia", "Madrid", "Murcia", "Navarra", "País Vasco",
+                "La Rioja")
+```
+
+```{r weights}
+caps <- c(2, 3, 4, 5, 10, 100)
+W <- sapply(caps, function(k) {
+  invisible(capture.output(
+    w <- suppressWarnings(anesrake(targ_epa, spain, caseid = spain$ResponseId,
+                                   cap = k, type = "nolim"))
+  ))
+  unlist(w[1])
+})
+colnames(W) <- paste0("cap", caps)
+spain$w <- W[, "cap3"]                      # the Article's headline scheme
+
+old65     <- spain$agecat == "6"        # factor: compare to the level, not to the number
+N         <- nrow(spain)
+n_pro     <- sum(spain$immdum == 1); n_anti_d <- sum(spain$immdum == 0)
+n_anti_t  <- sum(spain$imm3 == 0)
+# guard: the text claims imm3 == 2 and immdum == 1 select the same respondents
+stopifnot(identical(which(spain$imm3 == 2), which(spain$immdum == 1)))
+n_65      <- sum(old65)
+targ_65   <- 100 * targ_epa$agecat[["6"]]
+min_cap   <- targ_epa$agecat[["6"]] * N / n_65
+
+CAPS <- data.frame(
+  cap      = caps,
+  achieved = sapply(caps, function(k) {
+    100 * sum(W[old65, paste0("cap", k)]) / sum(W[, paste0("cap", k)])
+  }),
+  bound    = 100 * n_65 * caps / N,
+  maxw     = apply(W, 2, max)
+)
+```
+
+```{r schemes18}
+# The archive's full multiverse of weights: 3 benchmarks x 6 caps = 18 schemes,
+# built with the archive's own target vectors and its own anesrake call.
+ine_t <- list(gender = c("1" = .487, "2" = .513),
+              agecat = c("1" = .061, "2" = .098, "3" = .157, "4" = .203, "5" = .194,
+                         "6" = .287),
+              ccaa   = setNames(ccaa_ine, as.character(1:17)))
+ccaa_w_cis <- c(1.1269, 1.1022, .8914, .9609, 1.1133, .5406, 1.0064, 1.0428, 1.1710,
+                1.0454, 1.0068, .9352, .8833, 1.0735, .5353, 1.0137, .3965)
+cis_n <- c(585, 93, 96, 84, 148, 91, 199, 150, 476, 361, 90, 246, 564, 99, 96, 175, 61)
+cis_t <- list(gender = c("1" = .483, "2" = .517),
+              agecat = c("1" = .082, "2" = .121, "3" = .171, "4" = .196, "5" = .172,
+                         "6" = .257),
+              ccaa = setNames((cis_n * ccaa_w_cis) / sum(cis_n * ccaa_w_cis), as.character(1:17)))
+SRC18 <- list(EPA = targ_epa, INE = ine_t, CIS = cis_t)
+
+W18 <- NULL; nm18 <- character(0)
+for (s18 in names(SRC18)) for (k in caps) {
+  invisible(capture.output(
+    o <- suppressWarnings(anesrake(SRC18[[s18]], spain, caseid = spain$ResponseId,
+                                   cap = k, type = "nolim"))
+  ))
+  W18 <- cbind(W18, unlist(o[1])); nm18 <- c(nm18, sprintf("%s cap %g", s18, k))
+}
+colnames(W18) <- nm18
+
+RP <- cor(W18); RS <- cor(W18, method = "spearman")
+rp <- RP[lower.tri(RP)]; rs <- RS[lower.tri(RS)]
+n_schemes <- ncol(W18); n_pairs <- length(rp)
+
+# NOTE: do not try to bisect for "the" cap at which anesrake starts converging. Its
+# partial-convergence flag is not monotone in the cap -- over caps 11-26 it changes sign
+# thirteen times -- so a bisection returns an arbitrary one of many crossings.
+
+# --- what each scheme actually achieves, cell by cell -------------------------
+# |achieved - target| in percentage points, over every cell of every margin.
+cells18 <- lapply(seq_len(n_schemes), function(j) {
+  s <- sub(" .*", "", nm18[j]); w <- W18[, j]
+  unlist(lapply(names(SRC18[[s]]), function(v) {
+    tg  <- SRC18[[s]][[v]]
+    ach <- tapply(w, factor(spain[[v]], levels = names(tg)), sum); ach[is.na(ach)] <- 0
+    setNames(abs(100 * ach / sum(w) - 100 * as.numeric(tg)), paste0(v, ":", names(tg)))
+  }))
+})
+MISS <- data.frame(Scheme = nm18,
+                   Min    = sapply(cells18, min),
+                   Median = sapply(cells18, median),
+                   Max    = sapply(cells18, max),
+                   `Cells off by > 1pp` = sapply(cells18, function(e) sum(e > 1)),
+                   `Largest weight`     = apply(W18, 2, max),
+                   check.names = FALSE)
+n_cells <- length(cells18[[1]])
+misses  <- MISS$Max > 1
+n_miss  <- sum(misses); n_hit <- sum(!misses)
+miss_lo <- min(MISS$Max[misses]); miss_hi <- max(MISS$Max[misses])
+# guard: the text and the table caption both claim the worst-missed cell is agecat:6 every time
+stopifnot(all(sapply(cells18[misses], function(e) names(which.max(e)) == "agecat:6")))
+
+# --- the age margin, and where the effect lives -------------------------------
+agev   <- as.integer(as.character(spain$agecat))
+old45  <- agev >= 4
+n_old  <- sum(old45); sh_old <- 100 * mean(old45)
+t45    <- c(EPA = 100 * sum(targ_epa$agecat[4:6]),
+            INE = 100 * sum(ine_t$agecat[4:6]),
+            CIS = 100 * sum(cis_t$agecat[4:6]))
+ate18 <- sapply(seq_len(n_schemes), function(j) {
+  d <- spain; d$w <- W18[, j]
+  unname(coef(lm(support ~ treat, weights = w, data = d))[2])
+})
+DIAL <- data.frame(
+  scheme    = nm18,
+  benchmark = sub(" .*", "", nm18),
+  cap       = as.numeric(sub(".*cap ", "", nm18)),
+  share     = 100 * colSums(W18[old45, ]) / colSums(W18),
+  ate       = ate18
+)
+ate_uw  <- unname(coef(lm(support ~ treat, data = spain))[2])
+cate_old <- lm_robust(support ~ treat, data = spain[old45, ],  se_type = "HC3")
+cate_yng <- lm_robust(support ~ treat, data = spain[!old45, ], se_type = "HC3")
+
+# --- the published scheme: who carries the weight, and does immigration matter?
+w_pub   <- W18[, "EPA cap 3"]
+
+# the trichotomous comparison group, and how its weight is actually distributed:
+# a third block sits between the cap and the near-zero floor, so describe all three
+lo134     <- w_pub[spain$imm3 == 0]
+n134_cap  <- sum(lo134 >= 3 - 1e-6)
+n134_tiny <- sum(lo134 <= 0.01)
+mid134    <- sort(lo134[lo134 > 0.01 & lo134 < 3 - 1e-6])
+
+# The Comment's weight bins (its Tables 3 and 4), rebuilt from the Article's own shipped
+# weight vector so the control-group means quoted below cannot drift from the published tables.
+wbin <- with(spain, ifelse(nationalweight >= 3, "high",
+                           ifelse(nationalweight >= 0.1, "medium",
+                                  ifelse(nationalweight >= 0 & nationalweight < 0.01,
+                                         "low", "other"))))
+# --- the nineteenth universe: the EPA targets built as they should have been ---------
+# svydesign WITH the elevation factor the archive omits, then re-raked at the Article's
+# own cap of 3. This is the corrected version of the Article's own weighting scheme.
+epa$FACTOREL <- as.numeric(epa$FACTOREL)          # shipped as character in the xlsx
+sv_fix   <- svydesign(ids = ~1, weights = ~FACTOREL, data = epa)
+targ_fix <- list(gender = prop.table(svytable(~gender, sv_fix)),
+                 agecat = prop.table(svytable(~agecat, sv_fix)),
+                 ccaa   = prop.table(svytable(~ccaa,   sv_fix)))
+invisible(capture.output(
+  o_fix <- suppressWarnings(anesrake(targ_fix, spain, caseid = spain$ResponseId,
+                                     cap = 3, type = "nolim"))
+))
+w_fix      <- unlist(o_fix[1])
+targ65_fix <- 100 * targ_fix$agecat[["6"]]
+cor_fix    <- cor(w_pub, w_fix, method = "spearman")
+d_fix      <- spain; d_fix$w <- w_fix
+ate_pub    <- unname(coef(lm(support ~ treat, weights = w, data = spain))[2])
+ate_fix    <- unname(coef(lm(support ~ treat, weights = w, data = d_fix))[2])
+tri_fix    <- unname(lm_robust(support ~ treat * factor(imm3), data = d_fix, weights = w,
+                               se_type = "HC3")$p.value["treat:factor(imm3)2"])
+# the interaction COEFFICIENT under each weighting, alongside its p-value above
+tri_coef_pub <- unname(coef(lm(support ~ treat * factor(imm3), weights = w,
+                               data = spain))["treat:factor(imm3)2"])
+tri_coef_fix <- unname(coef(lm(support ~ treat * factor(imm3), weights = w,
+                               data = d_fix))["treat:factor(imm3)2"])
+
+ctrl    <- spain$treat == 0
+c3_low  <- mean(spain$support[ctrl & wbin == "low"    & spain$immdum == 0])  # Table 3, Low
+c4_low  <- mean(spain$support[ctrl & wbin == "low"    & spain$immdum == 1])  # Table 4, Low
+c4_mid  <- mean(spain$support[ctrl & wbin == "medium" & spain$immdum == 1])  # Table 4, Mid
+c4_high <- mean(spain$support[ctrl & wbin == "high"   & spain$immdum == 1])  # Table 4, High
+
+# the archive's two-arm results, for the standard-error comparison below
+u2 <- read.csv(file.path(ARCHIVE, "output/appendix/results_2arm.csv"))
+a2 <- read.csv(file.path(ARCHIVE, "output/appendix/results_2arm_adj.csv"))
+
+# HC3 (_R) against survey-robust (_S) standard errors, over all 594 weighted specifications.
+# These are two estimators of the same variance, not independent modelling choices.
+se_pool  <- rbind(u2[, intersect(names(u2), names(a2))], a2[, intersect(names(u2), names(a2))])
+se_ratio <- function(b) {
+  r <- se_pool[[paste0(b, "_R_SE")]] / se_pool[[paste0(b, "_S_SE")]]
+  r[is.finite(r)]
+}
+rr_base <- se_ratio("Base_W"); rr_pro <- se_ratio("Pro_W"); rr_anti <- se_ratio("Anti_W")
+n_specs <- length(rr_base)
+# guard: the text claims HC3 is the larger of the two in every single case
+stopifnot(all(c(rr_base, rr_pro, rr_anti) > 1))
+```
+
+```{r ri}
+# Corrected randomization inference: permute the ASSIGNMENT, rebuild any interaction
+# from the permuted assignment, and refit the WEIGHTED model that is actually at issue.
+ri_correct <- function(dat, form, term, reps = 5000, seed = SEED) {
+  obs <- unname(coef(lm(form, weights = w, data = dat))[term])
+  # ritest() sets RNGkind("L'Ecuyer-CMRG") and never restores it, so pin the
+  # generator as well as the seed: otherwise every ri_correct() call that runs
+  # after the first ritest() draws from a different stream than the ones above it,
+  # and the document is not idempotent across two renders in one R session.
+  set.seed(seed, kind = "Mersenne-Twister", normal.kind = "Inversion")
+  b <- replicate(reps, {
+    d <- dat; d$treat <- sample(d$treat)
+    unname(coef(lm(form, weights = w, data = d))[term])
+  })
+  list(obs = obs, betas = b, p = (sum(abs(b) >= abs(obs)) + 1) / (reps + 1))
+}
+hc3_p <- function(dat, form, term) {
+  unname(lm_robust(form, data = dat, weights = w, se_type = "HC3")$p.value[term])
+}
+
+pro <- subset(spain, immdum == 1)
+anti_d <- subset(spain, immdum == 0)
+anti_t <- subset(spain, imm3 == 0)
+
+TESTS <- list(
+  # Figure 5's six panels are the two subgroups and the CATE difference under each
+  # moderator coding, so the full sample is absent THERE -- but it is reported, at
+  # c = 0 of n = 5,000, in Supplementary Tables B1/B2 and in the archive's own
+  # output/appendix/ritest_table_combined.tex ("Full sample & 0.0951 & 0 & 5000 &
+  # 0.0000"), for this same model. The 0.0002 on p8 is the TRICHOTOMOUS result,
+  # quoted correctly elsewhere in this document.
+  list(lab = "Full-sample ATE", d = spain, f = support ~ treat + imm_1,
+       tm = "treat", pub = "< 0.001"),
+  list(lab = sprintf("Pro-immigration subgroup (N = %d)", n_pro), d = pro, f = support ~ treat,
+       tm = "treat", pub = "< 0.001"),
+  list(lab = sprintf("**Anti-immigration subgroup, dichotomous (N = %d)**", n_anti_d),
+       d = anti_d, f = support ~ treat, tm = "treat", pub = "**0.018**"),
+  list(lab = sprintf("Anti-immigration subgroup, trichotomous (N = %d)", n_anti_t),
+       d = anti_t, f = support ~ treat, tm = "treat", pub = "< 0.001"),
+  list(lab = "Difference in CATE, dichotomous", d = spain, f = support ~ treat * immdum,
+       tm = "treat:immdum", pub = "0.695"),   # Figure 5, top-right panel, published version
+  list(lab = "**Difference in CATE, trichotomous**", d = spain, f = support ~ treat * factor(imm3),
+       tm = "treat:factor(imm3)2", pub = "**< 0.001**")
+)
+
+RI <- do.call(rbind, lapply(TESTS, function(x) {
+  r <- ri_correct(x$d, x$f, x$tm)
+  bold <- grepl("^\\*\\*", x$lab)
+  data.frame(Test = x$lab, Published = x$pub,
+             Corrected = if (bold) sprintf("**%s**", fmt(r$p)) else fmt(r$p),
+             `Analytic HC3` = fmt(hc3_p(x$d, x$f, x$tm)), check.names = FALSE)
+}))
+ri_anti  <- ri_correct(anti_d, support ~ treat, "treat")
+ri_tri   <- ri_correct(spain, support ~ treat * factor(imm3), "treat:factor(imm3)2")
+# the two further quantities discussed in the text under @tbl-ri
+ri_anti_t <- ri_correct(anti_t, support ~ treat, "treat")
+hc3_tri   <- hc3_p(spain, support ~ treat * factor(imm3), "treat:factor(imm3)2")
+
+# the pro-immigration illustration of the discarded weights
+m_w  <- lm(support ~ treat, weights = w, data = pro)
+m_uw <- lm(support ~ treat, data = pro)
+rt_pro <- ritest(m_w, "treat", reps = 5000, seed = SEED, parallel = FALSE)
+ri_pro <- ri_correct(pro, support ~ treat, "treat")
+b_w  <- coef(m_w)[2]; se_uw <- summary(m_uw)$coefficients[2, 2]
+
+# the archive's own procedure on the heterogeneity test, for the figure.
+# parallel = FALSE is OUR choice; the archive sets no parallel argument at all. Under ritest's
+# default the draws depend on the machine's core count, so the archive's permutation p-values are
+# not reproducible across machines even with a fixed seed.
+m_int  <- lm(support ~ treat * factor(imm3), weights = w, data = spain)
+obs_t  <- unname(coef(m_int)["treat:factor(imm3)2"])
+rt_pkg <- ritest(m_int, "treat:factor(imm3)2", reps = 5000, seed = SEED, parallel = FALSE)
+p_pkg  <- sum(abs(rt_pkg$betas) >= abs(obs_t)) / length(rt_pkg$betas)
+```
+
+{{< pagebreak >}}
+
+# Introduction
+
+This began as a very brief rejoinder to "_Still_ Instrumentally Inclusive" by Turnbull-Dugarte and López Ortega (the _Response_), which was released [as a pre-print](https://osf.io/rn6h3/files/km42r) on November 29th 2025 in response to the publication of [my replication](https://www.cambridge.org/core/journals/american-political-science-review/article/replication-of-instrumentally-inclusive-the-political-psychology-of-homonationalism-turnbulldugarte-and-lopez-ortega-2024/CBE4AAA8A4175BB85AD2B359EA58EEEE) (the _Comment_) [@dekadt2025] of their original paper ["Instrumentally Inclusive: The Political Psychology of Homonationalism"](https://www.cambridge.org/core/journals/american-political-science-review/article/instrumentally-inclusive-the-political-psychology-of-homonationalism/1D9425F6FA20F34B0918018275A507A8) (the _Article_) [@tddlo2024].^[The original version of this rejoinder is available on [GitHub](https://github.com/ddekadt/instrumentally_inclusive_replication_public/blob/master/brief_response_nov29/dekadt_brief_response_nov29.html), and my thinking at the time was summarised in some threads I posted on bluesky [here](https://bsky.app/profile/dandekadt.bsky.social/post/3m6rtn4wrtk24) and [here](https://bsky.app/profile/dandekadt.bsky.social/post/3m6rzddt5xl24).]
+
+In the _Comment_ I document the following:
+
+The authors use (very strange) weights for one study, and none for the other (yes, one can weight representative samples), and the authors use inappropriate standard errors for many (but not all) analyses.
+
+When you straightforwardly vary these choices, the pattern of statistically significant and substantively meaningful results presented in Study 2 goes away.
+
+The _Response_ has since been published in the [_American Political Science Review_](https://www.cambridge.org/core/journals/american-political-science-review/article/still-instrumentally-inclusive/EFEB1C5AA8259359BE4838B73377A9D7) (28 July 2026) [@tddlo2026], along with a replication archive deposited in the APSR Dataverse.^[A supplementary material is intended to be available as well, but at time of writing the APSR website appears to have an incomplete file -- I have notified the editors of the APSR of this. Fortunately, the supplementary analyses are provided in the replication archive, so not much is lost.] It is worth noting that the pre-print is no longer available online -- as of 29 July 2026 the OSF project that hosted it returns "[t]he requested node is no longer available." I retain a version I downloaded, available on request. In what follows I extend my original rejoinder in light of the published version of the _Response_, setting what it claims against what its own replication archive shows. I make three main points. 
+
+First, the multiverse analysis is just many correlated variants of the same test. This is in large part due to the authors' eighteen weighting schemes. These suffer multiple problems, and are largely just variations on one weighting scheme. I document that the six weighting schemes based on the Spanish Labour Force Survey (EPA) all use the wrong population targets due to a coding error -- the authors fail to use the survey weights provided with the EPA, and so target the survey's respondent allocation rather than Spain's population distribution. Further, fifteen of the eighteen weighting schemes substantially fail to achieve their targets, in large part due to the lack of older respondents in the convenience sample. This has a knock-on effect: all eighteen weighting schemes dramatically up-weight the same small group of people, who also happen to be those who show large treatment effects. I show that the eighteen weighting schemes are generally strongly correlated, especially so in terms of respondents' rank. In essence, the multiverse is just many correlated variants of the same test, based on weights that are largely not fit for purpose.
+
+Second, the randomization inference reported in the _Response_ is wrong. Due to two code errors, the randomization inference compares a weighted statistic against an unweighted null distribution and, in the two heterogeneity tests, permutes the interaction column rather than treatment assignment. Every permutation _p_-value the _Response_ reports is therefore computed against the wrong reference distribution. When both errors are corrected, two of the five tests the _Response_ reports as statistically significant are no longer so. Critically, these two tests are the ones that the _Response_ relies on to claim that the  _Comment_ is wrong --  the dichotomous anti-immigration _p_-value moves from 0.018 to 0.137, and the trichotomous difference in conditional average treatment effects from below 0.001 to 0.118. Unsurprisingly, the corrected randomization inference p-values are very close to analytical p-values based on HC3 robust standard errors. 
+
+Third, the authors make a great deal of the trichotomous moderator, which they erroneously described as being based on terciles of the immigration support variable. This is wrong -- the variable does not use terciles, but non-tercile cutpoints. As a result, the other key subgroup effect reported in the _Response_ rests on comparing just thirty high-weight control respondents against thirty-one treated. This analysis shows, as I originally argued in the _Comment_, that in study 2 of the _Article_ there is no evidence of heterogeneity with respect to immigration attitudes, and that all heterogeneity is with respect to weights. 
+
+I close by documenting seven claims in the _Response_ that are untrue or misleading.
+
+Before continuing, indulge a brief digression. I do not suppose that this rejoinder will change many minds, in part because people have already decided what they believe, in part because we are now deep in the weeds, and in part because it will not be published in the _APSR_. But I think it is important, for three reasons. First, it is important that the scientific record is corrected, and that false and misleading claims put in print -- perhaps especially in a discipline's leading journal -- are called out. Second, the _Response_ is replete with demonstrable errors, as was the _Article_ before it, and I believe the authors should issue at minimum a corrigendum for both the _Article_ and the _Response_ on the basis of these findings. Third, and slightly more mundane, I hope this rejoinder will serve as a good example for why multiverse analysis is at best not very useful, and at worst rather misleading. 
+
+# The Multiverse
+
+The authors' primary answer to the _Comment_ is a multiverse analysis. They report "2,970 alternative approaches to analyzing the data and testing our  hypotheses" (p2). A footnote (footnote 2, p4) makes that number even bigger, varying classical, HC3, and survey-robust standard errors, for "a total of 8,910 specifications." They summarise what this yields as follows (p2):
+
+> Across these different specifications, we find a consistent pattern. Individuals become more supportive of LGBT+ education when randomly exposed to treatment and, in contrast to Study 1 but as reported in the Article's description of Study 2, we find no consistent statistically significant differences, on average, based on pretreatment immigration attitudes.
+
+At first blush this feels persuasive: thousands of tests, all pointing in the same direction. Let's think carefully about what is going on.
+
+## How many tests are there, really?
+
+Before arguing about what these "8,910 specifications" actually tell us, it is worth counting them.
+
+The 8,910 specifications contains 2,970 point estimates. Each point estimate is counted three times, once for each standard error estimator. Note that the classical standard errors should not have been estimated at all. There isn't a debate on inference -- the linear probability model with a binary dependent variable has heteroskedastic errors. All the analyses with classical standard errors are simply misspecified (with respect to inference), so one third of the 8,910 specifications can be discarded entirely. Another third can be set aside as well, though for a different reason. The survey-robust and HC3 standard errors are not independent modelling choices but two estimators of the same variance, and the survey-robust version is systematically the smaller of the two: across all `r n_specs` weighted specifications in the archive the HC3 standard error is the larger one in every single case, by a median of `r fmt(100 * (median(rr_base) - 1), 0)` percent on the full sample and `r fmt(100 * (median(rr_anti) - 1), 0)` percent in the anti-immigration subgroup.
+
+So let us focus on the 2,970 estimates with HC3 robust standard errors. These 2,970 estimates are at most only 2,376 estimates. Of the 2,970 specifications, 594 use the full-sample, 1,188 pro-immigration subsamples (defined two ways), and 1,188 anti-immigration subsamples (defined two ways, using a dichotomous (`immdum`) and trichotomous (`imm3`) variable). But the two pro-immigration subsamples are the same sample, counted twice: `imm3 == 2` and `immdum == 1` select the same 700 respondents.^[It is worth noting there are 20 respondents who have missing `imm_1` and are erroneously coded into `immdum == 1` and `imm3 == 2`, which is why the top group is 700 rather than 680.] The archive confirms this fact: every `Pro_` column in the three-arm results is identical, row for row, to its counterpart in the two-arm results. So, 2,376 estimates, but even this number is generous, because the full-sample analyses necessarily use the same data as the pro- and anti-immigration subsamples, so they are not independent analyses. Likewise, though the two anti-immigration subsamples are not the same, they are necessarily overlapping (`immdum == 0` is a superset of `imm3 == 0`).
+
+These (generously calculated) 2,376 estimates vary along three dimensions. We have the four subsamples outlined above (full-sample, pro-immigration, anti-immigration dichotomous, anti-immigration trichotomous). We have thirty-three covariate adjustment sets. And we have eighteen weighting schemes. The estimands and the covariates together give 132 distinct analyses, which jumps to 2,376 because of the eighteen weighting schemes. So let's look at those.
+
+The _Response_ builds the eighteen weighting schemes from three reference distributions -- drawn from the Spanish Labour Force Survey (EPA), Spain's national statistics bureau (INE), and the publicly funded CIS -- each raked at six cap values, 2, 3, 4, 5, 10 and 100 (which prevent weights above these values from being assigned). We now know that the _Article_'s published estimates use one of these eighteen regimes, the EPA targets at a cap of 3. Are the eighteen weighting schemes eighteen different things, or just small variations on one thing?
+
+## The EPA population benchmarks are wrong
+
+Before answering that question, it is worth documenting that one set of weighting targets is simply wrong -- the EPA targets. These are built from the raw microdata of the Spanish Labour Force Survey (`data/EPA_2022T1.xlsx`). The authors construct the design as `svydesign(ids = ~1, data = epa)` without providing weights. The EPA is a stratified probability sample distributed with an elevation factor, `FACTOREL`, column 91 of that same file. This is a weighting variable, designed to bring the EPA in line with the population distribution. It is not used by the authors, and `svydesign` provides a warning about this in the authors' rendered log: "No weights or probabilities supplied, assuming equal probability."
+
+The consequence is that the "EPA Target (%)" column reflects the EPA's own respondent allocation, not Spain's demographics. Because the EPA deliberately over-samples small regions, the authors' EPA target says, for example, that Madrid is 6.4 percent of Spain, and Galicia 11.8 percent when they should be around 14.2 and 5.6 respectively. 
+
+In the replication code, just below the EPA block, the script hard-codes an INE benchmark vector (based on Spain's census), and that vector has Madrid at 14.18 percent and Galicia at 5.64. A few lines further on the authors hard-code the CIS benchmark as well, and there the authors do apply that survey's own design weights -- multiplying each region's sample size by its weight before normalising -- precisely the step omitted for the EPA. 
+
+As shown in @fig-targets, the EPA-based weights target is not Spain's population share (given by the presumably gold standard INE), and for the _Article's_ EPA cap 3 weights, the weighted sample is actually moved _away_ from Spain's geographic population distribution. In short, while the EPA-based weights might improve demographic characteristics like age, they actually worsen geographical representation in the sample. 
+
+```{r}
+#| label: fig-targets
+#| fig-cap: "The regional benchmarks, and what the sample reflects once they are applied. Regions ordered by population share."
+#| fig-width: 11
+#| fig-height: 5.4
+des_w <- svydesign(ids = ~1, weights = ~w, data = spain)
+reg <- data.frame(
+  region = ccaa_names,
+  epa = as.numeric(targ_epa$ccaa) * 100,
+  ine = ccaa_ine * 100,
+  unw = as.numeric(prop.table(table(spain$ccaa))) * 100,
+  wtd = as.numeric(prop.table(svytable(~ccaa, des_w))) * 100
+)
+reg$region <- factor(reg$region, levels = reg$region[order(reg$ine)])
+
+sub_b2 <- "The Article's published scheme: EPA targets, cap 3\nVertical rule marks the actual population share"
+b1 <- ggplot(reg) +
+  geom_segment(aes(y = region, yend = region, x = ine, xend = epa),
+               colour = "grey75", linewidth = 0.8) +
+  geom_point(aes(y = region, x = ine, colour = "Actual population share (INE)"), size = 2.4) +
+  geom_point(aes(y = region, x = epa, colour = "Target the archive rakes to"), size = 2.4) +
+  scale_colour_manual(values = c("Actual population share (INE)" = INK2,
+                                 "Target the archive rakes to" = PUB)) +
+  labs(title = "The targets are not population shares",
+       subtitle = "EPA microdata used without its elevation factor (FACTOREL)",
+       x = "share of Spain (%)", y = NULL) + thm
+
+b2 <- ggplot(reg) +
+  geom_segment(aes(y = region, yend = region, x = unw, xend = wtd),
+               arrow = arrow(length = unit(0.06, "in"), type = "closed"),
+               colour = "grey75", linewidth = 0.6) +
+  geom_point(aes(y = region, x = unw, colour = "Unweighted sample"), size = 2.2) +
+  geom_point(aes(y = region, x = wtd,
+                 colour = "After weighting (EPA targets, cap 3)"), size = 2.2) +
+  geom_point(aes(y = region, x = ine), shape = 124, size = 3.4, colour = INK) +
+  scale_colour_manual(values = c("Unweighted sample" = MUTED,
+                                 "After weighting (EPA targets, cap 3)" = PUB)) +
+  labs(title = "So weighting moves the sample away from Spain",
+       subtitle = sub_b2,
+       x = "share of sample (%)", y = NULL) + thm
+b1 | b2
+```
+
+This is visible in the lower panel of Figure 1 of the _Response_, titled "Demographic Skew in Unweighted Sample and Correction with Weights." Far from showing "why post-stratification weighting was essential" (p4) for the authors' analysis by "successfully [reducing], without fully correcting, these demographic imbalances", this figure shows that the post-weighting coverage of most regions is _worse_ than the unweighted coverage. 
+
+The figure shows Madrid falling from 20.89 percent of the unweighted sample to 6.17 percent of the weighted sample while Galicia rises from 5.35 to 15.27 percent, along with numerous other examples of weight-induced distortions away from the true share rather than toward it.
+
+It is worth asking what difference the error makes on its own. Rebuilding the EPA targets as they should have been built -- with `FACTOREL` applied -- lowers the 65-and-over target from `r fmt(targ_65, 1)` to `r fmt(targ65_fix, 1)` percent, and re-raking the sample at the _Article_'s own cap of 3 gives a weight vector that still correlates `r fmt(cor_fix, 2)` (Spearman) with the published one. The point estimates barely move: the weighted full-sample effect goes from `r fmt(ate_pub, 4)` to `r fmt(ate_fix, 4)`, and the trichotomous interaction from `r fmt(tri_coef_pub)` to `r fmt(tri_coef_fix)`, its HC3 _p_-value from `r fmt(hc3_tri)` to `r fmt(tri_fix)`. This is unsurprising in light of the discussion below, and even suggests that recovering Spain's demographics in the sample is in some ways beside the point -- _who_ gets the weights matters, not whether population targets are achieved. 
+
+## Most schemes do not reach their targets
+
+Let's set this issue aside, and simply assess how the weights perform in terms of recovering the targets (whether they are right or not). @tbl-miss reports, for each scheme, the gap between the achieved and the target share across all `r n_cells` cells of the three margins. Of the eighteen schemes, `r n_miss` miss at least one cell by between `r fmt(miss_lo, 1)` and `r fmt(miss_hi, 1)` percentage points, and in every one of them the worst-missed cell is the same one: the 65-and-over age group. The remaining `r n_hit` are the uncapped schemes, and they recover the targets by assigning very large maximum weights.
+
+```{r}
+#| label: tbl-miss
+#| tbl-cap: "Distance from target for each weighting scheme, across all 25 cells of the three raking margins (2 gender, 6 age, 17 region), in percentage points. The worst-missed cell is the 65-and-over age group in every scheme that misses."
+knitr::kable(MISS, digits = c(0, 2, 2, 2, 0, 1), align = c("l", rep("r", 5)),
+             row.names = FALSE)
+```
+
+The reason is arithmetic. There are `r n_65` respondents aged 65 and over in a sample of `r N`, and the target is `r fmt(targ_65, 1)` percent. With weights capped at 3, the largest attainable share for that cell is `r n_65` × 3 / `r N` = `r fmt(CAPS$bound[CAPS$cap == 3], 1)` percent. The minimum cap that could reach the target is `r fmt(min_cap, 2)`. For caps of 2, 3, 4, 5, and 10 the same problem arises: the achieved shares are `r paste(sprintf('%.2f', head(CAPS$achieved, 5)), collapse = ', ')` percent, which is `r n_65` × cap / `r N` in every case, up to rounding in the last digit. Every respondent over 65 is effectively pinned at the cap, in the five EPA schemes with caps below 100. This problem is most acute for the EPA and INE schemes which have a higher target for those 65+, but it applies to some degree to the CIS schemes too. 
+
+Interestingly, `anesrake` [@pasek2018] prints a message for ten of the eighteen schemes -- "raking achieved only partial convergence, please check the results to ensure that sufficient convergence was achieved." -- all ten of which are visible in the authors' own rendered log. It raises a formal `R` warning for each of those ten as well, though the archive's `tryCatch` re-runs the call under `suppressWarnings`, so none of them is ever recorded.
+
+## The eighteen schemes are variants on one
+
+The above matters. Consider @fig-schemes, which shows how every pair of weights correlates with every other. The upper panel reports the pairwise Pearson correlation coefficient for every pairing of weighting vectors produced. The lower panel reports the Spearman rank correlation, and is the most telling -- the ordering of respondents by weight moves relatively little across the different weighting regimes (Spearman correlations across all `r n_pairs` pairs run between `r fmt(min(rs), 2)` and 0.9959, with a median of `r fmt(median(rs), 2)`). In essence, the eighteen weighting schemes are not independent of one another: they rake the same respondents against the same margins. If the EPA targets had been used correctly (with weighting applied), one might imagine they would resemble each other more closely still. 
+
+```{r}
+#| label: fig-schemes
+#| fig-cap: "Every pair of weighting schemes in the archive, correlated."
+#| fig-width: 9.5
+#| fig-height: 5.4
+pair_df <- function(M, lab) {
+  lt <- which(lower.tri(M), arr.ind = TRUE)
+  data.frame(coef = lab, a = rownames(M)[lt[, 1]], b = colnames(M)[lt[, 2]], r = M[lower.tri(M)])
+}
+D18 <- rbind(pair_df(RP, "Pearson"), pair_df(RS, "Spearman"))
+D18$kind <- factor(ifelse(sub(" .*", "", D18$a) == sub(" .*", "", D18$b),
+                          "Same benchmark, cap differs", "Different benchmark"),
+                   levels = c("Same benchmark, cap differs", "Different benchmark"))
+D18$coef <- factor(D18$coef, levels = c("Pearson", "Spearman"))
+med18 <- aggregate(r ~ coef, D18, median)
+set.seed(SEED)
+ggplot(D18, aes(x = r, y = kind)) +
+  geom_vline(data = med18, aes(xintercept = r), linetype = "22",
+             colour = MUTED, linewidth = 0.4) +
+  geom_jitter(aes(fill = kind), height = 0.24, width = 0, shape = 21,
+              size = 2.2, stroke = 0.35, colour = "white", alpha = 0.9) +
+  geom_text(data = med18, aes(x = r, y = 2.72, label = sprintf("median %.2f", r)),
+            inherit.aes = FALSE, size = 3, colour = MUTED, hjust = -0.08) +
+  scale_fill_manual(values = c("Same benchmark, cap differs" = PUB,
+                               "Different benchmark" = COR)) +
+  scale_x_continuous(limits = c(0.24, 1), breaks = seq(0.3, 1, 0.1)) +
+  scale_y_discrete(expand = expansion(add = c(0.7, 0.95))) +
+  facet_wrap(~coef, ncol = 1, scales = "free_y") +
+  labs(title = "Every pair of weighting schemes in the archive, correlated",
+       subtitle = sprintf("%d pairwise correlations among the %d schemes (3 benchmarks x 6 caps)",
+                          n_pairs, n_schemes),
+       x = "correlation between the two weight vectors", y = NULL) +
+  thm + theme(panel.grid.major.y = element_blank())
+```
+
+## Why the eighteen cannot differ much
+
+The eighteen weighting schemes cannot really differ because of the age margin. The sample is `r fmt(sh_old, 1)` percent aged 45 and over
+-- `r n_old` respondents. Spain is between `r fmt(min(t45), 1)` and `r fmt(max(t45), 1)` percent, depending on the benchmark. The three benchmarks disagree with each other by `r fmt(max(t45) - min(t45), 1)` points, and with the sample by `r fmt(min(t45) - sh_old, 1)`.
+Every scheme in the archive, whichever benchmark and whichever cap, has to make those `r n_old` respondents count for between two and five times their number, depending on the cap; the _Article_'s own cap-3 scheme nearly triples them.
+
+They all do. Those 45 and over have a share of the total weight that runs from `r fmt(min(DIAL$share), 1)` percent under the tightest cap to `r fmt(max(DIAL$share), 1)` percent under the loosest -- the floor is twice their share of the sample. As I show in the _Comment_, that is also where the treatment effect lies: `r fmt(cate_old$coefficients[['treat']], 3)` among the `r n_old`, against `r fmt(cate_yng$coefficients[['treat']], 3)` among the other `r format(sum(!old45), big.mark = ",")`. @fig-dial plots the two together.
+
+```{r}
+#| label: fig-dial
+#| fig-cap: "Each of the eighteen weighting schemes, by how much of the total weight it places on the 167 respondents aged 45 and over. The cross marks the unweighted estimate, where they carry their sample share. The band marks where the three benchmarks say they should end up."
+#| fig-width: 8
+#| fig-height: 4.6
+ggplot(DIAL, aes(share, ate)) +
+  annotate("rect", xmin = min(t45), xmax = max(t45), ymin = -Inf, ymax = Inf,
+           fill = MUTED, alpha = 0.10) +
+  # right-aligned at the band's upper edge so the label grows leftward into empty space;
+  # centring it on mean(t45) pushed the tail off the panel
+  annotate("text", x = max(t45), y = -Inf, vjust = -0.8, hjust = 1, size = 3, colour = MUTED,
+           label = "where the benchmarks say Spain is") +
+  geom_point(aes(fill = benchmark), shape = 21, size = 2.8, stroke = 0.35, colour = "white") +
+  annotate("point", x = sh_old, y = ate_uw, shape = 4, size = 3.2, stroke = 1.1, colour = INK) +
+  annotate("text", x = sh_old + 1.2, y = ate_uw, hjust = 0, size = 3, colour = INK,
+           label = sprintf("unweighted (%.3f)", ate_uw)) +
+  scale_fill_manual(values = c(EPA = PUB, INE = COR, CIS = INK2)) +
+  labs(title = "Every scheme makes the same 167 people decisive",
+       subtitle = "Weights received by the 167 respondents aged 45 and over in every scheme",
+       x = "share of total weight assigned to respondents aged 45+ (%)",
+       y = "weighted treatment effect", fill = NULL) + thm
+```
+
+No weighting scheme in the multiverse can decline to make these respondents -- who show large treatment effects -- decisive, so agreement across the eighteen in terms of treatment effects is almost guaranteed by construction. 
+
+## So, what can the multiverse teach us?
+
+Not much, really. The 2,970 analyses are really just riffs on a single analysis. The eighteen weighting schemes do slightly different things (mostly the CIS schemes, which have lower targets in the age marginals), but they all put great weight on the same 167 respondents, who also happen to be the respondents that show treatment effects. 
+
+I would hazard that what we can learn from this exercise is precisely two things: first, this specific sample cannot be reasonably weighted to match Spain's population distribution, and second, that 167 respondents aged 45 and over are the only ones where any treatment effect is visible. As I argued in the _Comment_, in this case heterogeneity is with respect to weights, not immigration attitudes. 
+
+@rohrer2026 make a relevant point in a recent paper. They write: "[n]ot all specified universes may be equally likely to be correct, and statistical dependence among the universes may exaggerate certainty." They add that "the sheer quantity of analyses may appear very persuasive, resulting in a potentially false sense of certainty," and that "criticizing hundreds of analyses may often be impossible, as each specification may suffer from its own issues." 
+
+@modrak2026 makes a complementary argument and proposes two conventions I would adopt here. First, that "the quality of a multiverse should generally be judged as no higher than the quality of the worst universe included." Second, that large multiverses are "a red flag in their own right: either the scientific question at hand is not mature enough to let us attempt a serious answer or the authors have abdicated their scientific responsibility of actually determining which combinations of modeling, preprocessing or other analysis choices are in fact reasonable." 
+
+As Rohrer put it in an earlier post [@rohrer2021], "you can’t brute-force inference with more data and more stats."
+
+# The Randomization Inference Does Not Test What It Says It Tests
+
+I now turn to the randomization inference results reported in the _Response_, and visualised in Figure 5 thereof. The authors report that "for the anti-immigration subgroup (the subgroup analysis where the _Comment_ is concerned with a null effect), the permutation _p_-value was 0.018," and, for the trichotomous moderator, "the probability of observing the identified effect under the null is less than 1 in 5,000." 
+
+The authors implement these analyses with the `ritest` package [@mcdermott2021]. Bluntly, the results the authors present are simply wrong.
+
+Before explaining why, here is a brief reminder of how randomization inference works. You produce a point estimate with a given estimator (your "observed" statistic). You then shuffle the treatment indicator very many times (ideally you permute it). For each shuffle, you use your given estimator to estimate the given statistic under that shuffled treatment. All those estimates can be used to build a reference distribution -- what the sampling distribution of the statistic you chose would look like if the sharp null hypothesis of no effect on any unit were actually true. You then compare your observed statistic against the reference distribution, and characterize the unlikeliness of observing that statistic under the null. If your observed statistic falls far in the tails of the reference distribution -- is very unusual given the sharp null -- you might reject the sharp null.
+
+In the _Response_ the authors do the first step correctly. They estimate the effect _with weights_ applied -- this is the observed statistic from the estimator on which we hope to conduct inference. They then feed the model object to the `ritest` function, and here is where things break. The weights are discarded -- `ritest` refits each permutation with `.lm.fit()`, which is unweighted ordinary least squares. The string `weight` does not appear anywhere in the body of the function, and the weights in the provided model object are not inherited. So the observed statistic is a _weighted_ estimate, and the reference distribution against which it is judged comes from _unweighted_ estimates.
+
+Given the context of our disagreement, this obviously matters a great deal. For the pro-immigration subgroup, the weighted estimate is `r fmt(b_w, 4)`, the permutation distribution has a standard deviation of `r fmt(sd(rt_pro$betas), 4)` -- which is unsurprisingly approximately the _unweighted_ standard error of `r fmt(se_uw, 4)`. The correct standard deviation, obtained by permuting treatment and refitting the _weighted_ model, is `r fmt(sd(ri_pro$betas), 4)`. So the reference distribution is less than half as wide as it should be. Every reported permutation _p_-value in the _Response_ is therefore too small, always in the same direction.
+
+For the two heterogeneity tests, things get worse: the _wrong column_ is permuted. `ritest` locates the variable to be shuffled by matching the string it is given against the column names of the model matrix, and shuffling that column. The archive passes the function `"treat:immdum"` and `"treat:factor(imm3)2"`. Those are interaction columns. What gets shuffled by `ritest` is thus the product, while `treat` and the moderator remain at their observed values. `treat:immdum` is the treated-and-pro-immigration indicator. Shuffling it hands that flag to respondents who are untreated, or anti-immigration, or both, while leaving `treat` and the moderator at their observed values. No assignment of treatment to people can produce such a dataset, so the resulting distribution is not the reference distribution of interest for the quantities stated in Figure 5 in the _Response_.
+
+A shuffled product column is close to orthogonal to the rest of the design by construction, so its coefficient varies far less than a genuine interaction. That interaction term captures the difference between the two groups' conditional average treatment effects -- with these moderators and no covariates the coefficient _is_ that difference, exactly -- and it is what the authors label a "difference in CATE" in their Figure 5. I follow their label below. In this case the null distribution is _five times_ too narrow -- the difference between the correctly implemented randomization inference and the authors' version can be seen in @fig-ri.
+
+```{r}
+#| label: fig-ri
+#| fig-cap: "The same observed estimate against two null distributions. Both panels share an x-axis; 5,000 permutations each."
+#| fig-width: 10
+#| fig-height: 4.6
+xr <- c(-0.45, 0.45)
+panel <- function(b, col, ttl, sub, plab) {
+  ggplot(data.frame(b = b), aes(b)) +
+    geom_histogram(aes(y = after_stat(density)), bins = 60, fill = col,
+                   colour = "white", linewidth = 0.15, alpha = 0.9) +
+    geom_vline(xintercept = obs_t, colour = INK, linewidth = 0.7) +
+    annotate("text", x = obs_t - 0.015, y = Inf, vjust = 1.6, hjust = 1, size = 3,
+             colour = INK, label = sprintf("observed = %.3f", obs_t)) +
+    annotate("text", x = xr[2], y = Inf, vjust = 3.4, hjust = 1, size = 3.4,
+             colour = col, fontface = "bold", label = plab) +
+    coord_cartesian(xlim = xr) +
+    labs(title = ttl, subtitle = sub, x = "permuted difference in CATE", y = NULL) +
+    thm + theme(axis.text.y = element_blank())
+}
+p_arc <- panel(rt_pkg$betas, PUB, "As implemented in the archive",
+               "ritest shuffles the treat x moderator product column; weights discarded",
+               ifelse(p_pkg == 0, "p = 0.0000", sprintf("p = %.4f", p_pkg)))
+p_prm <- panel(ri_tri$betas, COR, "Permuting treatment assignment",
+               "treatment re-randomised, interaction rebuilt, EPA cap-3 weighted model refitted",
+               sprintf("p = %.3f", ri_tri$p))
+(p_arc | p_prm) +
+  plot_annotation(
+    title = "The same observed estimate against two null distributions",
+    theme = theme(plot.title = element_text(face = "bold", size = 13, colour = INK),
+                  plot.subtitle = element_text(size = 10, colour = INK2))
+  )
+```
+
+To see what these errors do to the authors' conclusions, I re-ran every test published in the _Response_, permuting treatment assignment and refitting the weighted model the _Response_ claims to be testing.^[There are actually two nulls in play here. For the two difference-in-CATE rows the _Response_ names the null H0: effect homogeneity. I permute under the sharp null of no effect on any unit, which necessarily implies H0: effect homogeneity. That is the right null for the four subgroup rows, and it has the advantage of being exact. Testing effect homogeneity instead means positing a constant treatment effect, subtracting an estimate of it before permuting and adding it back afterwards; since the constant must be estimated, that test is approximate rather than exact. I have run it that way too: the trichotomous difference gives 0.108 and the dichotomous 0.912, against the 0.118 and 0.908 reported here, and the answer is unchanged for every plausible way of estimating the constant. The observed statistic does not move at all -- subtracting a constant effect is collinear with treatment -- so only the reference distribution shifts, and only slightly. For clarity, for these two rows the _Response_'s own procedure implements neither null: shuffling the interaction column while treatment, the moderator and the outcome all remain at their observed values corresponds to no randomization of treatment at all.] @tbl-ri reports the result.
+
+```{r}
+#| label: tbl-ri
+#| tbl-cap: "Published permutation p-values, the same tests with treatment permuted and the weighted model refitted, and the analytic heteroskedasticity-consistent p-values. 5,000 permutations throughout, seed 12345. The Published column is transcribed from the Response; the other two are computed here."
+#| tbl-colwidths: [52,16,16,16]
+knitr::kable(RI, align = c("l", "c", "c", "c"))
+```
+
+Three things emerge. First, the full-sample and pro-immigration results survive -- unsurprisingly as these also survived the HC3 correction (when weighted). Second, the _Response_'s headline rebuttal does not: the anti-immigration subgroup under the dichotomous coding moves from a published 0.018 to `r fmt(ri_anti$p)`. Under the trichotomous coding that subgroup effect does survive, at `r fmt(ri_anti_t$p)`. Third, and most consequential, the interaction term under the trichotomous coding does not survive. The _Response_ leans heavily on this variable, and the published _p_-value for the interaction is < 0.001, which becomes `r fmt(ri_tri$p)` when corrected and `r fmt(hc3_tri)` analytically. 
+
+The corrected permutation _p_-values agree with the _p_-values based on the analytic standard errors I reported in the _Comment_, which is what a correctly specified randomization test on a clean experiment should do, and which is a good reason to think the corrected column is the right one. 
+
+The _Response_'s published answer to my critique about inference and the anti-immigration subgroup is a permutation _p_-value of 0.018. Computed correctly, it is `r fmt(ri_anti$p)` -- pretty much exactly the _p_-value implied by the robust analytic standard error I reported in the _Comment_. It also turns out that the trichotomous interaction does not rescue the authors' argument. 
+
+# Heterogeneity by Immigration Attitudes
+
+## The trichotomous result is a weighting artifact
+
+Let us now turn to that trichotomous moderator. In the _Article_ the authors included an appendix analysis using the trichotomous moderator, rather than the dichotomous moderator. I did not re-analyse this in the _Comment_. The authors make a great deal of this fact, stating it multiple times throughout the _Response_. 
+
+This variable is itself problematic, and in the end it simply reaffirms a point I made in the _Comment_. 
+
+First, note that despite the authors' description, this variable is not terciles. The variable `imm3` cuts the 0--10 immigration scale at 0--3, 4--6, and 7--10, giving groups of 134, 382, and 700 -- 11, 31, and 58 percent of the sample respectively. The top group reaches 700 only because the 7--10 band itself contains `r sum(spain$imm_1 >= 7, na.rm = TRUE)` respondents and the `r sum(is.na(spain$imm_1))` respondents with a missing `imm_1` score are all coded into it. The true tercile cutpoints are 6 and 8. The right panel of Figure 4 is nonetheless titled "Tercile-based moderator," and the word tercile is used multiple times in the _Response_. 
+
+This is not just nit-picking, it is materially important. As noted earlier, the high group (7 and over) is the identical 700 respondents as in the dichotomous pro-immigration group (because it is not terciles). Only the comparison group changes, moving from 516 to 134. Who are those 134 respondents? Under the _Article_'s own cap-3 weights, `r n134_cap` sit at the cap of 3, `r n134_tiny` have weights of 0.01 or below, and the remaining `r length(mid134)` fall between `r fmt(min(mid134), 2)` and `r fmt(max(mid134), 2)`. Among the `r n134_cap` high-weight respondents the comparison rests on 30 control (5 supporting) against 31 treated (16 supporting). 
+
+The _Comment_ concluded that any conditionality in Study 2 is with respect to the weights, and not immigration attitudes. The _Response_'s strongest heterogeneity result is a comparison of thirty high-weight people against thirty-one high-weight people.
+
+## The interaction appears numerous times in the archive and in none of the specification curves
+
+In the _Comment_, one important test of the _Article_'s homonationalism theory was the interaction between treatment and immigration sentiment measured on the continuous 0--10 scale -- `support ~ treat * imm_1`, a different specification from the two-group contrasts in @tbl-ri. The _Response_'s archive includes code that computes it -- `Int_W_C_Int` and `Int_W_S_Int` -- for all weighted specifications, and writes every one of them to the appendix CSV files. The code then removes them from every specification-curve figure with a filter, `filter(..., !str_starts(Model, "Int"))`, applied at four places in the script. @fig-interaction shows the distribution the filter removes.
+
+```{r}
+#| label: fig-interaction
+#| fig-cap: "The coefficient the theory is about, across the authors' own multiverse."
+#| fig-width: 9
+#| fig-height: 5
+una <- read.csv(file.path(ARCHIVE, "output/appendix/results_2arm.csv"))
+adj <- read.csv(file.path(ARCHIVE, "output/appendix/results_2arm_adj.csv"))
+gp  <- function(e, s) 2 * pnorm(-abs(e / s))
+
+# HC3 standard errors: the estimator the Response adopts for its own headline multiverse
+# ("Figure 3 reports treatment effects, with robust (HC3) standard errors", p4). The archive
+# stores only a classical and a survey-robust variant of THIS coefficient, so it is refitted
+# here over the archive's own grid: 18 weighting schemes x (unadjusted + 32 covariate sets).
+csets_int <- unique(adj$Control_Set)   # 32 labels; the archive's "None" means region FE only
+grid_int  <- rbind(
+  data.frame(j = seq_len(n_schemes), cs = "__unadj__", stringsAsFactors = FALSE),
+  expand.grid(j = seq_len(n_schemes), cs = csets_int,
+              KEEP.OUT.ATTRS = FALSE, stringsAsFactors = FALSE)
+)
+int_hc3 <- function(j, cs, dat, wmat) {
+  d <- dat; d$w <- wmat[, j]
+  # the archive appends ccaa fixed effects to EVERY adjusted set, and its unadjusted run is
+  # separate -- see build_covariate_rhs at L249-252 and its use at L1537 of the archive script.
+  # Without this the grid is 36 copies of the unadjusted cell and 558 cells the archive never fits.
+  rhs <- if (cs == "__unadj__") "treat * imm_1"
+         else if (cs == "None") "treat * imm_1 + ccaa"
+         else                   paste("treat * imm_1 +", cs, "+ ccaa")
+  m <- lm_robust(as.formula(paste("support ~", rhs)), data = d, weights = w, se_type = "HC3")
+  unname(m$p.value["treat:imm_1"])
+}
+pv <- data.frame(p = mapply(int_hc3, grid_int$j, grid_int$cs,
+                            MoreArgs = list(dat = spain, wmat = W18)))
+int_med <- median(pv$p)
+int_sig <- 100 * mean(pv$p < 0.05)
+n_int   <- nrow(pv)
+# the archive's own survey-robust variant of the same coefficient, for the contrast in the text
+p_srv     <- c(gp(adj$Int_W_S_Int, adj$Int_W_S_Int_SE), gp(una$Int_W_S_Int, una$Int_W_S_Int_SE))
+srv_med   <- median(p_srv); srv_sig <- 100 * mean(p_srv < 0.05)
+int_signs <- c(adj$Int_W_S_Int, una$Int_W_S_Int)
+int_neg   <- 100 * mean(int_signs < 0)
+
+fmt_int <- paste0("All %s weighted specifications in the archive, refitted with the HC3 ",
+                  "standard errors the Response adopts.\nExcluded from every specification ",
+                  "curve in the Response. Median p = %.3f; %.1f%% reach p < 0.05.")
+ggplot(pv, aes(p)) +
+  geom_histogram(bins = 45, fill = COR, colour = "white", linewidth = 0.15, alpha = 0.9) +
+  geom_vline(xintercept = 0.05, linetype = "dashed", colour = INK, linewidth = 0.5) +
+  annotate("text", x = 0.062, y = Inf, vjust = 1.6, hjust = 0, size = 3, colour = INK,
+           label = "p = 0.05") +
+  labs(title = "The interaction between treatment and immigration sentiment (0-10 scale)",
+       subtitle = sprintf(fmt_int, n_int, int_med, int_sig),
+       x = "two-sided p-value", y = "specifications") + thm
+```
+
+If we want to play the multiverse game, then under the HC3 standard errors the _Response_ itself adopts the median _p_-value is `r fmt(int_med)`, and only `r fmt(int_sig, 1)`% of the _p_-values reach _p_ < 0.05. The archive's own survey-robust variant of the same coefficient is markedly more favourable to the authors and still does not help them: median `r fmt(srv_med)`, with `r fmt(srv_sig, 0)`% reaching _p_ < 0.05. In fairness, the sign is consistent with the theory in `r fmt(int_neg, 0)` percent of all `r n_int` specifications. This does matter (though the multiverse provisos apply), but it does not rescue the inferential reality.
+
+With the main arguments of the _Response_ addressed -- the multiverse and its weights, the randomization inference, the trichotomous moderator -- I now turn to a series of misleading claims made by the authors in the _Response_. Many of these claims were present in the pre-print version and have not been changed, but some are new. 
+
+# Misleading Claim 1: Missing Robust Standard Errors
+
+```{r se-audit}
+main_re <- "Figure 3|Figure 4|Figure 6|Figure 7|Table A7|Table A8|Table A9|Table A10"
+# hand audit of every estimation call in the Article's 2024 archive; ships in data/ alongside
+# se_call_audit.md, which documents how each call was categorised.
+aud  <- read.csv("data/se_call_audit.csv", fileEncoding = "UTF-8-BOM")
+# Count only standard errors the reader can see: printed in a table or drawn in a figure.
+# Calls whose output goes to the console alone are excluded -- they never reach the Article,
+# and each of the six in the main results belongs to a model that is already counted via its
+# published panel, so dropping them removes double-counting without losing a single model.
+main <- subset(aud, grepl(main_re, paper_output) & category %in% c("A", "B", "C") &
+                    !grepl("console output", paper_output))
+```
+
+In the _Response_ the authors acknowledge their inconsistent use of robust standard errors, but do not correctly explain its source. They initially attribute it to "a coding error," elaborated in footnote 3. This seems to explain the inconsistency, but it does not -- after blaming a code error they then write that I "correctly identif[ied] some instances where robust standard errors were erroneously _not_ called." (emphasis in original). 
+
+I have now audited every estimation call in the _Article_'s replication archive, and every output that reports a standard error -- `r nrow(aud)` call-and-report pairs, of which `r sum(aud$category %in% c("A", "B", "C"))` print a standard error. While many are not relevant here, @tbl-se shows the frequency of the `r nrow(main)` that underpin the main results -- the four main-text figures reporting the experimental results (Figures 3 and 4 for Study 1, 6 and 7 for Study 2), the two supplementary tables the _Article_ itself points to for their regression output (A7 and A9), and the continuous-outcome counterparts of those two tables (A8 and A10). Figure 8 and Table A11 report the secondary pride outcomes and are set aside.
+
+```{r}
+#| label: tbl-se
+#| tbl-cap: "Standard errors across the main results of the Article: Figures 3, 4, 6, and 7, and Tables A7, A8, A9, and A10. Every standard error the Article prints -- in a table, or drawn in a figure -- is counted once. Calls whose output goes only to the console are excluded."
+#| tbl-colwidths: [58,14,14,14]
+lab <- c(A = "Robust standard errors correctly obtained",
+         B = "`robust = TRUE` passed to a function with no such argument",
+         C = "No robust standard errors requested at all")
+cnt <- function(s, k) sum(main$category == k & (if (is.null(s)) TRUE else main$study == s))
+SE_TAB <- data.frame(
+  ` `        = unname(lab[c("A", "B", "C")]),
+  `Study 1`  = sapply(c("A", "B", "C"), function(k) cnt(1, k)),
+  `Study 2`  = sapply(c("A", "B", "C"), function(k) cnt(2, k)),
+  Both       = sapply(c("A", "B", "C"), function(k) cnt(NULL, k)),
+  check.names = FALSE, row.names = NULL
+)
+tot_row <- data.frame(
+  ` ` = "**Total**",
+  `Study 1` = sprintf("**%d**", sum(main$study == 1)),
+  `Study 2` = sprintf("**%d**", sum(main$study == 2)),
+  Both = sprintf("**%d**", nrow(main)),
+  check.names = FALSE
+)
+SE_TAB <- rbind(SE_TAB, tot_row)
+n_nevercall <- sum(main$category == "C")
+# guard: the text claims not one printed Study 2 main-result SE is attributable to their error
+stopifnot(sum(main$study == 2 & main$category == "B") == 0)
+knitr::kable(SE_TAB, align = c("l", "r", "r", "r"))
+```
+
+Of the `r nrow(main)` standard errors the _Article_ prints for its main results, `r n_nevercall` come from calls where robust standard errors were never requested at all. Stating that I correctly identified "some instances" where this occurred seems to mischaracterize reality. But the Study 2 column is the one I would draw particular attention to. In Study 2, all `r sum(main$study == 2)` printed main-result standard errors are non-robust -- and not one of them is attributable to the code error the authors describe. Study 1, by contrast, contains every correctly obtained robust standard error in a main result.^[`modelsummary` has never documented a `robust` argument, so `robust = TRUE` is silently absorbed into `...`. In the version the authors ran it nonetheless reached the variance estimator in some calls: the standard errors printed in Tables A8 and A11 of the _Article_ are in fact HC3, not classical -- I confirmed this with the package's author, who was surprised by it. Under current versions the same call returns classical standard errors. The count above is a count of the code, not of the accident: `robust = TRUE` was never a supported way to ask `modelsummary` for robust standard errors, and whether a given call returned them depended on which version happened to be installed rather than on anything in the script.] 
+
+# Misleading Claim 2: Mischaracterizing the Discussion of Weights
+
+The _Response_ quotes me as follows (p2):
+
+> The Comment describes the decision to use weights in Study 2 as "inconsistent with the analysis of Study 1, and this inconsistency is not explained or justified." This is a mischaracterization: the Article clearly states that Study 1 data are based on a representative sample (Article, 1366) and that Study 2 is based on a crowd-sourced sample that we weight to approximate the population (Article, 1370). This difference reflects different sampling designs that are explicitly detailed in the Article, not an ad hoc choice.
+
+What I actually wrote, on p2 of the _Comment_, is this:
+
+> The published results of study 2 are based on the inclusion of survey weights in the regression analyses. This is inconsistent with the analysis of study 1, and this inconsistency is not explained or justified in the article **beyond the indication that the data were from a crowd-sourced sample and not a representative sample.**
+
+The emphasis is mine, and it marks the clause that was removed -- truncated mid-sentence, with no ellipsis, and closed with a full stop inside the quotation marks so that it reads as a complete sentence. What is then offered as a correction of me -- that the _Article_ distinguishes Study 1's representative sample from Study 2's crowd-sourced one -- is the very qualification the quotation deletes. 
+
+I pointed out this misquoting in the first version of this rejoinder, released after the first version of their reply, and yet it remains in the published version.
+
+# Misleading Claim 3: Mischaracterizing My Position on Weighting Convenience Samples
+
+The authors write (p2):
+
+> The Comment suggests that applying post-stratification weights to a convenience sample is, in itself, problematic and generally discouraged. This claim is not supported by a consensus in the methodological literature. Franco et al. (2017) recommend reporting both weighted and unweighted estimates when possible, but at no point do they argue against weighting convenience samples as the Comment claims.
+
+I say neither of these things in the published _Comment_.^[I will be straightforward about where the characterisation may come from. Earlier versions of the _Comment_ -- the copy I sent the authors on 2 October 2024, the copy I sent the _APSR_ on 23 October, and the version I formally submitted contained this sentence: "Conventional best practices in the discipline generally advocate for not weighting convenience samples (Mullinix et al. (2015), Franco et al. (2017), Miratrix et al. (2018)), and so this choice is particularly worth noting." (The version I first sent to the authors cited only Miratrix et al.) All of these are public at <https://github.com/ddekadt/instrumentally_inclusive_replication_public>, and have been since shortly after the _Comment_ was published. I presume that sentence is the source of both of the things the _Response_ attributes to me, and I do not dispute having written it. But it was removed after a reviewer correctly rebuffed my characterisation, and it does not appear in the published _Comment_. The _Response_ is a published reply to the published _Comment_, and the claim it sets out to correct is not in that document.]
+
+Nowhere in the _Comment_ do I claim that weighting a convenience sample is problematic in itself. What I wrote is that "weighting choices should depend on the inferential target (estimand) of interest," and that "weights may be appropriate when it is important to target the population average treatment effect (PATE) rather than a sample average treatment effect (SATE)." That is a statement that weighting can be the right thing to do, not that it is discouraged. I go on to cite @mullinix2015 and @miratrix2018 -- the latter of which the authors themselves cite in support of their own estimand argument -- for the finding that weighted and unweighted analyses tend to track each other closely, and to note Miratrix et al.'s warning that when they meaningfully diverge, that is "a flag that weight misspecification could be a real concern."
+
+Nor do I claim that @franco2017 argue against weighting convenience samples. I cite them for something quite different: the standard to be met when weighting. I write that "[t]he scholarly consensus in political science appears to be that, if using weights, both the weighted and unweighted estimates should be reported and contrasted, and the 'construction and application of weights [should be done] in a detailed and transparent manner'."
+
+So the consensus I describe is: report both, and explain how you generated your weights. The first half of that is exactly what the authors themselves say @franco2017 recommend, in the very sentence in which they set out to correct me. Their rebuttal restates my position and presents it as a refutation of it. Note that they stop there: the second half -- the detailed and transparent construction and application of weights -- goes unmentioned.
+
+That would be a small thing, but for the fact that one of the key problems with the _Article_ was that they met neither part of the standard. 
+
+# Misleading Claim 4: The Shifting Justification for Weighting
+
+This one has changed between the pre-print and the published version, and the change is worth noting.
+
+In the November pre-print, the authors justified the reliance on weights by asserting that an unweighted sample "overrepresents subgroups less responsive to the treatment (e.g., younger respondents already at ceiling on the outcome measure)". The full quote is provided in @fig-claim4, shown here as a screenshot as the original version of the pre-print is not currently available online. 
+
+::: {#fig-claim4}
+
+![](img/claim4_tldo_working.jpg){#fig-claim4-tldo}
+
+The ceiling-effects justification for weighting, at p5 of the November 2025 pre-print. No equivalent passage appears in the published _Response_.
+:::
+
+I said at the time that this begs the question. We don't know _a priori_ who is responsive to treatment -- that is an open scientific question. It is circular to claim that those who are found to be highly sensitive to treatment _should be upweighted_ on that account. The _Article_ proposes immigration sentiment as the moderator, not age (or anything else).
+
+That circular argument is gone. The estimand argument that replaced it in the section's architecture was, in fairness, already present in the pre-print -- but it has been escalated, and its one caveat has been dropped. The pre-print said that if the goal is a population-level effect "post-stratification weighting is an appropriate and widely used approach, even with non-probability samples, provided the target variables are measured accurately" (p4). The published version deletes that proviso and promotes the claim: that the target of inference is a population average treatment effect rather than a sample average treatment effect, so that "post-stratification weighting of a convenience sample is not merely permissible but methodologically required" (p2), and that my "preferred unweighted analysis recovers a SATE for a sample dominated by young, urban respondents".
+
+I have no quarrel with the estimand distinction in principle, in fact I articulated this very distinction in the _Comment_. The difficulty is that it is an argument about what weights would accomplish if they worked, and the archive now shows what these weights actually do. Weighting to a population only recovers a population average treatment effect if the weighted sample resembles the population. After weighting, this one is 5.2 percent aged 65 and over against a target of 28.9 percent, and 14.8 percent aged 18--24 against a target of 5.9 percent. On region it moves further from Spain than the unweighted sample, because the targets are not population figures at all. Whatever this recovers, it is not the PATE for Spain -- and the SATE it started from was at least a well-defined quantity.
+
+The evidence I presented in the original version of this rejoinder also still stands, and now bears on the new argument rather than the old one. In the _Comment_ I show in Table 3 that, even among those who are _negatively disposed towards immigrants_, those with low weights show no response to treatment while those with high weights show a strong response. This is true even though the low-weight control group sits at `r fmt(c3_low)` on a 0--1 outcome, well short of any ceiling. I then show in Table 4 that, among those positively disposed towards immigrants, the same pattern holds. Here the ceiling story has more to work with -- the low-weight control group sits at `r fmt(c4_low)` -- but it does not survive the ordering: the mid-weight group, at `r fmt(c4_mid)`, shows no response either, while the high-weight group does respond, from a control mean of `r fmt(c4_high)`. Responsiveness tracks the weights, not the headroom left in the outcome, and not the moderator -- which is a problem for the theory whatever weighting justification one selects.
+
+# Misleading Claim 5: The Shifting Importance of Heterogeneity
+
+In the _Response_ the authors present the _Article_ as having reported no consistent heterogeneity by immigration attitudes in Study 2. They write in the abstract: "Consistent with the _Article_, we find that treatment increases support for LGBT+ inclusion in Spain, without consistent identifiable variation by immigration attitudes." On page 2 they reaffirm this by reporting that "... in contrast to Study 1 but _as reported in the Article’s description of Study 2_, we find no consistent statistically significant differences, on average, based on pretreatment immigration attitudes."
+
+To be fair to the authors, the _Response_ does concede, on its first page, that the _Article_'s trichotomous specification "did, however, find that the effect of the treatment was significantly greater among the most anti-immigration (lowest tercile) compared to the most pro-immigration (highest tercile)." But that concession sits beside an abstract and a body that describe the _Article_'s own account of Study 2 as reporting no consistent variation by immigration attitudes -- and that description is not what the _Article_ says. There are parts of the _Article_ where the authors are clear about the absence of a dichotomous difference (their discussion of Figure 7, for instance), but for the most part they are not.
+
+On pps 1371-2 of the _Article_, while discussing their main results in Figure 6, the authors write that "[e]xperimentally exposing Spanish respondents to ethnic out-group opposition to LGBT+ rights, however, significantly increases support for the liberal LGBT+ policy vis-à-vis those randomly exposed to ethnic in-group opposition and this effect is significantly larger among those with nativist preferences."
+
+Further down on p 1372 they write that "[g]iven that each group has a different baseline, this does indicate that the magnitude of the effect among anti-immigrant respondents is notably larger. While for pro-immigrant respondents exposure to treatment resulted in a 14% change in the outcome vis-à-vis the control group-based counterfactual, the same treatment message resulted in a 21% change among anti-immigrant respondents."
+
+The entire arc of the _Article_ leans on this framing. In the abstract of the _Article_ the authors state their theory as "... exposure to sexually conservative ethnic out-groups can provoke an instrumental increase in LGBT+ inclusion, particularly among those hostile toward immigration." In the conclusion (p 1374) they write that they "provide causal evidence to demonstrate that when opposition to progressive LGBT+ policy issues is presented as a concern of an ethnic out-group (Muslims), those with illiberal predispositions toward immigration are significantly more likely to strategically liberalize their preferences on LGBT+ rights. We
+demonstrate that exposing individuals in Britain with below-average support for immigration to news of out-group based opposition to LGBT+ rights induces a 9.7 percentage-point uptake in support for LGBT+ vis-à-vis individuals with comparable illiberal positions
+on immigration. A similar experimental design finds effects of a comparable size (10 percentage points) in Spain."
+
+# Misleading Claim 6: Misleading Visualizations
+
+The authors describe my concerns about the data visualizations as "taste-based", as "reasonable stylistic preferences but [...] ultimately, preferences rather than errors", and maintain that "at no point do our visualizations incorrectly label what is displayed beyond the logistic-versus-OLS error already acknowledged" (p8).
+
+But their data visualizations do at least two things that are highly unusual, and would _never_ be expected by any reader. Neither of these choices is disclosed in the _Article_. This makes the visualizations misleading.
+
+First, the authors report 90% confidence intervals (with critical values hard-coded into the code). Second, they include jittered predicted values as dots on the experimental results plots.
+
+An undisclosed 90% interval is not a matter of taste. A reader looking at an interval that excludes zero, in a discipline where the convention is 95%, is being shown something other than what they will assume they are being shown, and nothing in the figure or its note tells them otherwise. The question is not whether 90% intervals are ever defensible; it is whether a reader can tell which one they are looking at. Here they cannot.
+
+Likewise, every reader I have shown the jittered points to has assumed, at first blush, that the points are real data points. No one would _ever_ assume that these points are jittered predicted values. This is not a matter of taste or stylistic preference, it is simply misleading and should _never_ be done. 
+
+The corrected versions of the figures -- available in the _Comment_ -- differ from the published versions starkly enough that the two would not be taken for the same analysis. This is not just a matter of taste, it is a matter of misleading the reader.
+
+# Misleading Claim 7: The Account of How This Began
+
+Footnote 1 of the _Response_ gives an account of the correspondence:
+
+> The Commentator shared an email with us on October 2, 2024 signaling some concerns with our article. We responded on October 9 (see Supplementary Material Correspondence I) signaling our desire to alleviate some of their concerns and to form a collaborative path forward including pursuing a joint replication using new data. We did not receive any further communication in response. After we did not hear from the Commentator or the APSR, we later contacted the APSR editorial team ourselves soliciting guidance on how to submit a corrigendum based on the two identified coding errors in the Article [...]
+
+Every sentence here may be true, yet read together they leave a misleading impression, in three respects.
+
+First, there was no ambiguity about what would happen next. My email of 2 October 2024 said so: "I plan to post the comment on my public website on November 1. Before then, on October 23, I will share the comment with the APSR editorial team so that they are aware ahead of time. I am sharing this with you now as a professional courtesy." 
+
+Second, I then did what I had said I would do, with one exception. On 23 October 2024 I sent the _Comment_ to the APSR editorial team and to Cambridge University Press's publishing ethics team, as announced. On 1 November 2024 the APSR invited me to submit it on the reappraisals and replication track. I did not, however, post the _Comment_ on my website on 1 November: for reasons I cannot disclose, I decided against doing so.
+
+Third, "later" is doing a great deal of work in the authors' account. Their own letter, reproduced in their Supplementary Material as Correspondence II, reads: "As nearly seven months have passed without any further communication from the replicator or initial correspondence from APSR and given the impact this period has had on our well-being as authors, we are now proactively reaching out to initiate a formal corrigendum process ourselves." On the authors' own accounting, then, nearly seven months elapsed between our October 2024 exchange and their letter to the _APSR_. Their footnote reduces that interval to "later".
+
+Finally, my decision to not reply to the authors was based on an evaluation that there was not a constructive collaborative path forward. I assessed that the only productive path forward was to send my concerns to the APSR editorial team. I appreciate that others might have read the context differently. Nothing that has happened since has changed my assessment. 
+
+
+
+{{< pagebreak >}}
+
+# References
+
+::: {#refs}
+:::
+
+{{< pagebreak >}}
+
+# Appendix: Code
+
+Analyses use `R` [@rcore] with `anesrake` [@pasek2018] for the raking, `survey`
+[@lumley2004] for the design-based estimates, `estimatr` [@estimatr] for the
+heteroskedasticity-consistent standard errors, and `ritest` [@mcdermott2021]
+where the archive's own procedure is reproduced.
+
+```{r ref.label = knitr::all_labels(), echo = TRUE, eval = FALSE}
+```

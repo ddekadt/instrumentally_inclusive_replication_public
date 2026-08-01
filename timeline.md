@@ -20,7 +20,7 @@ Sept '24: I wrote my report
 
 9 July '25: I received a conditional accept subject to some internal APSR steps that required I submit initial replication materials for review [I do not know the details of this process.]
 
-July '25: The original authors wrote to the APSR to suggest a corrigendum, and were informed that the replication was forthcoming [here I rely on the original authors' account of the process and have no further details.]
+May - July '25: The original authors wrote to the APSR to suggest a corrigendum, and were informed that the replication was forthcoming [Note: I am not exactly sure on this timing. In the authors' email to the APSR they wrote that it had been "nearly seven months" since I contacted them (the email is not dated in their documents), but one of the authors [wrote on BlueSky](https://bsky.app/profile/turnbulldugarte.com/post/3m6ros6s4ac2n) that '[after] we notified APSR ourselves regarding a corrigendum for a standard-error coding issue, we were told a Comment was forthcoming and given 60 days to submit a response.' Given the replication was not accepted until 9 July 2025, I cannot be sure exactly when the authors initiated their correspondence with the APSR.]
 
 26 September '25: The paper was officially conditionally accepted in editorial manager, and replication materials were formally submitted to dataverse. 
 
